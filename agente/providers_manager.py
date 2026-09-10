@@ -50,14 +50,10 @@ DEFAULT_MODELS: Dict[str, List[str]] = {
         "qwen-2.5-coder-32b"
     ],
     "OpenRouter": [
-        "minimax/minimax-m3:free",
-        "openrouter/auto",
-        "openai/gpt-oss-20b:free",
         "liquid/lfm-2.5-2.6b:free",
-        "google/gemma-4-31b-it:free",
-        "cohere/north-mini-code:free",
-        "z-ai/glm-5.2:free",
-        "stealth/ox-alpha"
+        "inclusionai/ling-3.0-flash-fin:free",
+        "minimax/minimax-m3:free",
+        "poolside/laguna-s-2.1:free"
     ]
 }
 
@@ -68,16 +64,12 @@ DEFAULT_CUSTOM_SERVERS: List[dict] = [
         "base_url": "https://openrouter.ai/api/v1/chat/completions",
         "api_key_env": "OPENROUTER_API_KEY",
         "api_key": "",
-        "modelo_atual": "minimax/minimax-m3:free",
+        "modelo_atual": "liquid/lfm-2.5-2.6b:free",
         "modelos": [
-            "minimax/minimax-m3:free",
-            "openrouter/auto",
-            "openai/gpt-oss-20b:free",
             "liquid/lfm-2.5-2.6b:free",
-            "google/gemma-4-31b-it:free",
-            "cohere/north-mini-code:free",
-            "z-ai/glm-5.2:free",
-            "stealth/ox-alpha"
+            "inclusionai/ling-3.0-flash-fin:free",
+            "minimax/minimax-m3:free",
+            "poolside/laguna-s-2.1:free"
         ]
     }
 ]
@@ -202,6 +194,15 @@ def adicionar_modelo_provedor(provedor: str, modelo: str, server_id: Optional[st
                     s["modelos"] = []
                 if modelo not in s["modelos"]:
                     s["modelos"].append(modelo)
+                
+                # Se for provedor também mapeado em builtin_models (ex: OpenRouter), mantém sincronizado
+                prov_key = s.get("nome", provedor)
+                if "builtin_models" in dados:
+                    for bk in dados["builtin_models"]:
+                        if bk.lower() == prov_key.lower() or bk.lower() == server_id.lower():
+                            if modelo not in dados["builtin_models"][bk]:
+                                dados["builtin_models"][bk].append(modelo)
+                            break
                 salvar_dados(dados)
                 return
         return
@@ -213,24 +214,47 @@ def adicionar_modelo_provedor(provedor: str, modelo: str, server_id: Optional[st
 
     if modelo not in dados["builtin_models"][provedor]:
         dados["builtin_models"][provedor].append(modelo)
+        # Se for OpenRouter ou outro com custom_server, mantém sincronizado lá também
+        for s in dados.get("custom_servers", []):
+            if s.get("nome", "").lower() == provedor.lower() or s.get("id", "").lower() == provedor.lower():
+                if "modelos" not in s:
+                    s["modelos"] = []
+                if modelo not in s["modelos"]:
+                    s["modelos"].append(modelo)
         salvar_dados(dados)
 
 
 def remover_modelo_provedor(provedor: str, modelo: str, server_id: Optional[str] = None) -> bool:
     """Remove um modelo da lista de modelos salvos."""
     dados = carregar_dados()
+    removed = False
     if server_id:
         for s in dados.get("custom_servers", []):
             if s.get("id") == server_id:
                 if modelo in s.get("modelos", []):
                     s["modelos"].remove(modelo)
+                    removed = True
+                prov_key = s.get("nome", provedor)
+                if "builtin_models" in dados:
+                    for bk, bmodels in dados["builtin_models"].items():
+                        if (bk.lower() == prov_key.lower() or bk.lower() == server_id.lower()) and modelo in bmodels:
+                            bmodels.remove(modelo)
+                            removed = True
+                if removed:
                     salvar_dados(dados)
-                    return True
+                return removed
         return False
 
     if provedor in dados.get("builtin_models", {}):
         if modelo in dados["builtin_models"][provedor]:
             dados["builtin_models"][provedor].remove(modelo)
+            removed = True
+        for s in dados.get("custom_servers", []):
+            if s.get("nome", "").lower() == provedor.lower() or s.get("id", "").lower() == provedor.lower():
+                if modelo in s.get("modelos", []):
+                    s["modelos"].remove(modelo)
+                    removed = True
+        if removed:
             salvar_dados(dados)
             return True
     return False

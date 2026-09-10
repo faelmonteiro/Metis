@@ -14,9 +14,10 @@
       "gemini-2.0-flash-lite-preview-02-05"
     ],
     "OpenRouter": [
-      "google/gemini-2.0-flash-exp:free",
-      "openrouter/free",
-      "stealth/ox-alpha"
+      "liquid/lfm-2.5-2.6b:free",
+      "inclusionai/ling-3.0-flash-fin:free",
+      "minimax/minimax-m3:free",
+      "poolside/laguna-s-2.1:free"
     ],
     "Ollama": [
       "llama3.2-vision:11b",

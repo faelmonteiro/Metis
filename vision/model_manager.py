@@ -32,9 +32,10 @@ DEFAULT_MODELS_DATA = {
             "gemini-2.0-flash-lite-preview-02-05"
         ],
         "OpenRouter": [
-            "google/gemini-2.0-flash-exp:free",
-            "openrouter/free",
-            "stealth/ox-alpha"
+            "liquid/lfm-2.5-2.6b:free",
+            "inclusionai/ling-3.0-flash-fin:free",
+            "minimax/minimax-m3:free",
+            "poolside/laguna-s-2.1:free"
         ],
         "Ollama": [
             "llama3.2-vision:11b",
@@ -150,6 +151,7 @@ def add_model_to_provider(provider: str, model_id: str) -> bool:
     if "builtin_models" not in cfg:
         cfg["builtin_models"] = {}
 
+    added = False
     # 1. Verifica se existe em builtin_models
     matched_prov = None
     for k in cfg["builtin_models"].keys():
@@ -160,25 +162,26 @@ def add_model_to_provider(provider: str, model_id: str) -> bool:
     if matched_prov:
         if model_id not in cfg["builtin_models"][matched_prov]:
             cfg["builtin_models"][matched_prov].append(model_id)
-            save_models_config(cfg)
-            return True
-        return False
+            added = True
 
-    # 2. Verifica se é um servidor customizado
+    # 2. Verifica se é um servidor customizado (ou se OpenRouter está em ambos)
     for srv in cfg.get("custom_servers", []):
         if srv.get("nome", "").lower() == provider.lower() or srv.get("id", "").lower() == provider.lower():
             if "modelos" not in srv:
                 srv["modelos"] = []
             if model_id not in srv["modelos"]:
                 srv["modelos"].append(model_id)
-                save_models_config(cfg)
-                return True
-            return False
+                added = True
 
-    # 3. Se não existe, cria em builtin_models
-    cfg["builtin_models"][provider] = [model_id]
-    save_models_config(cfg)
-    return True
+    # 3. Se não existe em nenhum lugar, cria em builtin_models
+    if not matched_prov and not added:
+        cfg["builtin_models"][provider] = [model_id]
+        added = True
+
+    if added:
+        save_models_config(cfg)
+        return True
+    return False
 
 def remove_model_from_provider(provider: str, model_id: str) -> bool:
     """Remove um modelo de uma categoria (builtin ou custom_servers) e ajusta o modelo ativo se necessário."""
@@ -190,17 +193,14 @@ def remove_model_from_provider(provider: str, model_id: str) -> bool:
         if k.lower() == provider.lower() and model_id in mlist:
             mlist.remove(model_id)
             removed = True
-            break
 
     # 2. Tenta remover de custom_servers
-    if not removed:
-        for srv in cfg.get("custom_servers", []):
-            if srv.get("nome", "").lower() == provider.lower() or srv.get("id", "").lower() == provider.lower():
-                mlist = srv.get("modelos", [])
-                if model_id in mlist:
-                    mlist.remove(model_id)
-                    removed = True
-                    break
+    for srv in cfg.get("custom_servers", []):
+        if srv.get("nome", "").lower() == provider.lower() or srv.get("id", "").lower() == provider.lower():
+            mlist = srv.get("modelos", [])
+            if model_id in mlist:
+                mlist.remove(model_id)
+                removed = True
 
     if removed:
         # Se o modelo removido era o ativo, escolhe o próximo modelo disponível
