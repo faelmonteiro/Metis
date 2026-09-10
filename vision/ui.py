@@ -24,6 +24,7 @@ from PyQt6.QtGui import (
 from PyQt6.QtWidgets import (
     QApplication,
     QWidget,
+    QDialog,
     QVBoxLayout,
     QHBoxLayout,
     QLineEdit,
@@ -40,7 +41,8 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QPlainTextEdit,
     QSizePolicy,
-    QAbstractItemView
+    QAbstractItemView,
+    QMenu
 )
 
 _vision_dir = str(Path(__file__).resolve().parent)
@@ -63,7 +65,279 @@ PROVIDER_ICONS = {
     "openrouter": "🌐 OpenRouter",
     "ollama": "🦙 Ollama",
     "groq": "🚀 Groq",
+    "g4f": "🤖 G4F (Gratuito)",
+    "anthropic": "🧠 Anthropic",
+    "openai": "🔮 OpenAI",
 }
+
+
+class ModernInputDialog(QDialog):
+    """Diálogo modal customizado com StaysOnTopHint e tema Metis para entrada de texto sem conflitos em Wayland/Hyprland."""
+    def __init__(self, parent=None, title: str = "Editar Modelo", label: str = "ID do modelo:", default_text: str = "", placeholder: str = ""):
+        super().__init__(parent)
+        self.setWindowFlags(
+            Qt.WindowType.Dialog |
+            Qt.WindowType.FramelessWindowHint |
+            Qt.WindowType.WindowStaysOnTopHint
+        )
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.resize(460, 195)
+        self.drag_position = QPoint()
+
+        t = theme_manager.get_theme_palette()
+        
+        # Centraliza sobre a janela pai caso disponível
+        if parent:
+            try:
+                p_geo = parent.geometry()
+                x = p_geo.x() + (p_geo.width() - 460) // 2
+                y = p_geo.y() + (p_geo.height() - 195) // 2
+                self.move(max(10, x), max(10, y))
+            except Exception:
+                pass
+
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(4, 4, 4, 4)
+
+        card = QFrame()
+        card.setObjectName("ModernModalCard")
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(18, 16, 18, 16)
+        card_layout.setSpacing(10)
+
+        # Header com título
+        title_lbl = QLabel(title)
+        title_lbl.setStyleSheet(f"color: {t['accent']}; font-size: 13.5px; font-weight: 800; letter-spacing: 0.5px; background: transparent;")
+        card_layout.addWidget(title_lbl)
+
+        # Label de instrução
+        desc_lbl = QLabel(label)
+        desc_lbl.setStyleSheet(f"color: {t['text_muted']}; font-size: 11px; background: transparent;")
+        desc_lbl.setWordWrap(True)
+        card_layout.addWidget(desc_lbl)
+
+        # Input
+        self.input_field = QLineEdit()
+        self.input_field.setText(default_text)
+        if placeholder:
+            self.input_field.setPlaceholderText(placeholder)
+        self.input_field.selectAll()
+        self.input_field.setStyleSheet(f"""
+            QLineEdit {{
+                background-color: {t['inner_box_bg']};
+                color: {t['text_primary']};
+                border: 1.2px solid {t['border_col']};
+                border-radius: 8px;
+                padding: 7px 10px;
+                font-size: 12px;
+                font-family: {t['font_family']};
+            }}
+            QLineEdit:focus {{
+                border: 1.4px solid {t['accent']};
+                background-color: {t['inner_box_hover']};
+            }}
+        """)
+        self.input_field.returnPressed.connect(self.accept)
+        card_layout.addWidget(self.input_field)
+
+        # Botões na barra inferior
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(8)
+        btn_row.addStretch()
+
+        cancel_btn = QPushButton("Cancelar")
+        cancel_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        cancel_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {t['inner_box_bg']};
+                color: {t['text_primary']};
+                border: 1px solid {t['border_subtle']};
+                border-radius: 8px;
+                padding: 6px 14px;
+                font-size: 11.5px;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{
+                background-color: {t['inner_box_hover']};
+                border-color: {t['accent']};
+                color: {t['accent']};
+            }}
+        """)
+        cancel_btn.clicked.connect(self.reject)
+
+        save_btn = QPushButton("✓ Salvar")
+        save_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        save_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {t['accent_btn_bg']};
+                color: {t['accent_btn_fg']};
+                border: none;
+                border-radius: 8px;
+                padding: 6px 18px;
+                font-size: 11.5px;
+                font-weight: 800;
+            }}
+            QPushButton:hover {{
+                background-color: {t['accent_btn_hover']};
+                color: #ffffff;
+            }}
+        """)
+        save_btn.clicked.connect(self.accept)
+
+        btn_row.addWidget(cancel_btn)
+        btn_row.addWidget(save_btn)
+        card_layout.addLayout(btn_row)
+
+        card.setStyleSheet(f"""
+            QFrame#ModernModalCard {{
+                background-color: {t['card_bg_rgba']};
+                border: {t['card_border_style']};
+                border-radius: 12px;
+            }}
+        """)
+        main_layout.addWidget(card)
+
+    def get_text(self) -> str:
+        return self.input_field.text().strip()
+
+    def keyPressEvent(self, event: QKeyEvent):
+        if event.key() == Qt.Key.Key_Escape:
+            self.reject()
+        elif event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            self.accept()
+        else:
+            super().keyPressEvent(event)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.drag_position = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        if event.buttons() == Qt.MouseButton.LeftButton and not self.drag_position.isNull():
+            self.move(event.globalPosition().toPoint() - self.drag_position)
+            event.accept()
+
+
+class ModernConfirmDialog(QDialog):
+    """Diálogo modal de confirmação com StaysOnTopHint e tema Metis para exclusão segura de modelos."""
+    def __init__(self, parent=None, title: str = "Remover Modelo", message: str = "Tem certeza?", danger_text: str = "🗑️ Excluir", cancel_text: str = "Cancelar"):
+        super().__init__(parent)
+        self.setWindowFlags(
+            Qt.WindowType.Dialog |
+            Qt.WindowType.FramelessWindowHint |
+            Qt.WindowType.WindowStaysOnTopHint
+        )
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.resize(450, 190)
+        self.drag_position = QPoint()
+
+        t = theme_manager.get_theme_palette()
+        
+        # Centraliza sobre a janela pai caso disponível
+        if parent:
+            try:
+                p_geo = parent.geometry()
+                x = p_geo.x() + (p_geo.width() - 450) // 2
+                y = p_geo.y() + (p_geo.height() - 190) // 2
+                self.move(max(10, x), max(10, y))
+            except Exception:
+                pass
+
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(4, 4, 4, 4)
+
+        card = QFrame()
+        card.setObjectName("ModernModalCard")
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(18, 16, 18, 16)
+        card_layout.setSpacing(12)
+
+        # Header com título
+        title_lbl = QLabel(title)
+        title_lbl.setStyleSheet("color: #f87171; font-size: 13.5px; font-weight: 800; letter-spacing: 0.5px; background: transparent;")
+        card_layout.addWidget(title_lbl)
+
+        # Mensagem
+        msg_lbl = QLabel(message)
+        msg_lbl.setStyleSheet(f"color: {t['text_primary']}; font-size: 11.5px; line-height: 1.4; background: transparent;")
+        msg_lbl.setWordWrap(True)
+        card_layout.addWidget(msg_lbl)
+
+        # Botões
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(8)
+        btn_row.addStretch()
+
+        cancel_btn = QPushButton(cancel_text)
+        cancel_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        cancel_btn.setStyleSheet(f"""
+            QPushButton {{
+                background-color: {t['inner_box_bg']};
+                color: {t['text_primary']};
+                border: 1px solid {t['border_subtle']};
+                border-radius: 8px;
+                padding: 6px 14px;
+                font-size: 11.5px;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{
+                background-color: {t['inner_box_hover']};
+                border-color: {t['accent']};
+                color: {t['accent']};
+            }}
+        """)
+        cancel_btn.clicked.connect(self.reject)
+
+        danger_btn = QPushButton(danger_text)
+        danger_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        danger_btn.setStyleSheet("""
+            QPushButton {
+                background-color: rgba(239, 68, 68, 0.2);
+                color: #f87171;
+                border: 1px solid #ef4444;
+                border-radius: 8px;
+                padding: 6px 18px;
+                font-size: 11.5px;
+                font-weight: 800;
+            }
+            QPushButton:hover {
+                background-color: #ef4444;
+                color: #ffffff;
+            }
+        """)
+        danger_btn.clicked.connect(self.accept)
+
+        btn_row.addWidget(cancel_btn)
+        btn_row.addWidget(danger_btn)
+        card_layout.addLayout(btn_row)
+
+        card.setStyleSheet(f"""
+            QFrame#ModernModalCard {{
+                background-color: {t['card_bg_rgba']};
+                border: {t['card_border_style']};
+                border-radius: 12px;
+            }}
+        """)
+        main_layout.addWidget(card)
+
+    def keyPressEvent(self, event: QKeyEvent):
+        if event.key() == Qt.Key.Key_Escape:
+            self.reject()
+        elif event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            self.accept()
+        else:
+            super().keyPressEvent(event)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.drag_position = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        if event.buttons() == Qt.MouseButton.LeftButton and not self.drag_position.isNull():
+            self.move(event.globalPosition().toPoint() - self.drag_position)
+            event.accept()
 
 
 class PromptTextEdit(QPlainTextEdit):
@@ -207,6 +481,7 @@ class ScreenAIOverlay(QWidget):
         self.drag_position = QPoint()
         self.active_window_cwd: Optional[Path] = get_active_window_cwd()
         self.pending_save_path: Optional[Path] = None
+        self.last_failed_prompt: Optional[str] = None
 
         # Timer de renderização suave de Markdown (Throttle de 40ms)
         self._render_timer = QTimer(self)
@@ -303,13 +578,14 @@ class ScreenAIOverlay(QWidget):
         self.set_mode_badge(self.capture_mode)
         header_layout.addWidget(self.mode_label)
 
-        # Seletor de Modelo Pill
-        self.model_combo = QComboBox()
-        self.model_combo.setObjectName("ModelSelector")
-        self.model_combo.setToolTip("Selecione o modelo de IA do Metis")
-        self.refresh_model_combo()
-        self.model_combo.currentIndexChanged.connect(self.on_model_changed)
-        header_layout.addWidget(self.model_combo)
+        # Seletor Inteligente de Provedores e Modelos (Menu Hierárquico)
+        self.model_btn = QPushButton()
+        self.model_btn.setObjectName("ModelSelector")
+        self.model_btn.setToolTip("Selecione o modelo de IA por Provedor")
+        self.model_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.model_combo = self.model_btn  # Retrocompatibilidade
+        self.refresh_model_menu()
+        header_layout.addWidget(self.model_btn)
 
         header_layout.addStretch()
 
@@ -524,7 +800,10 @@ class ScreenAIOverlay(QWidget):
         self.settings_models_list.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.settings_models_list.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.settings_models_list.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+        self.settings_models_list.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.settings_models_list.setToolTip("Dica: Use Ctrl ou Shift para selecionar múltiplos modelos para excluir")
         self.settings_models_list.itemDoubleClicked.connect(self.edit_selected_model)
+        self.settings_models_list.itemSelectionChanged.connect(self._update_delete_button_label)
         m_box.addWidget(self.settings_model_lbl)
         m_box.addWidget(self.settings_models_list)
         cols_layout.addLayout(m_box, 1)
@@ -546,11 +825,11 @@ class ScreenAIOverlay(QWidget):
         edit_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         edit_btn.clicked.connect(self.edit_selected_model)
 
-        rem_btn = QPushButton("🗑️ Excluir")
-        rem_btn.setObjectName("SettingsDeleteBtn")
-        rem_btn.setToolTip("Remover o modelo selecionado")
-        rem_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-        rem_btn.clicked.connect(self.remove_selected_model)
+        self.settings_rem_btn = QPushButton("🗑️ Excluir")
+        self.settings_rem_btn.setObjectName("SettingsDeleteBtn")
+        self.settings_rem_btn.setToolTip("Remover o(s) modelo(s) selecionado(s) (Ctrl/Shift+Clique para múltiplos)")
+        self.settings_rem_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+        self.settings_rem_btn.clicked.connect(self.remove_selected_model)
 
         set_active_btn = QPushButton("⭐ Usar Este Modelo")
         set_active_btn.setObjectName("SettingsActiveBtn")
@@ -560,7 +839,7 @@ class ScreenAIOverlay(QWidget):
 
         act_row.addWidget(add_btn)
         act_row.addWidget(edit_btn)
-        act_row.addWidget(rem_btn)
+        act_row.addWidget(self.settings_rem_btn)
         act_row.addStretch()
         act_row.addWidget(set_active_btn)
         settings_vbox.addLayout(act_row)
@@ -1083,7 +1362,8 @@ class ScreenAIOverlay(QWidget):
         """Retorna para a visão principal de captura e chat."""
         self.content_stack.setCurrentIndex(0)
         self.search_input.setFocus()
-        self.status_label.setText("✓ Pronto para análise.")
+        if not getattr(self, 'last_failed_prompt', None):
+            self.status_label.setText("✓ Pronto para análise.")
 
     def load_settings_categories(self):
         self.settings_provider_list.clear()
@@ -1116,130 +1396,304 @@ class ScreenAIOverlay(QWidget):
         models = model_manager.get_models_for_provider(provider)
         active_prov, active_mod = model_manager.get_active_model()
 
-        for m in models:
+        target_row = 0
+        for i, m in enumerate(models):
             is_active = (provider.lower() == active_prov.lower() and m == active_mod)
             display_text = f"⭐  {m}   (Ativo)" if is_active else f"🤖  {m}"
             item = QListWidgetItem(display_text)
             item.setData(Qt.ItemDataRole.UserRole, m)
             item.setToolTip(f"ID completo: {m}")
             self.settings_models_list.addItem(item)
+            if is_active:
+                target_row = i
+
+        if models:
+            self.settings_models_list.setCurrentRow(target_row)
+        self._update_delete_button_label()
+
+    def _update_delete_button_label(self):
+        if not hasattr(self, 'settings_rem_btn'):
+            return
+        count = len(self.settings_models_list.selectedItems())
+        if count > 1:
+            self.settings_rem_btn.setText(f"🗑️ Excluir ({count})")
+            self.settings_rem_btn.setToolTip(f"Remover os {count} modelos selecionados")
+        else:
+            self.settings_rem_btn.setText("🗑️ Excluir")
+            self.settings_rem_btn.setToolTip("Remover o modelo selecionado (Ctrl/Shift+Clique para múltiplos)")
 
     def add_model_dialog(self):
         curr_row = self.settings_provider_list.currentRow()
         if curr_row < 0:
+            self.status_label.setText("⚠️ Selecione um provedor primeiro.")
             return
         item = self.settings_provider_list.item(curr_row)
         provider = item.data(Qt.ItemDataRole.UserRole) or item.text()
 
-        text, ok = QInputDialog.getText(
-            self,
-            "Adicionar Modelo",
-            f"Digite o nome ou ID do modelo para {provider} (ex: meta/llama-3.2-11b-vision-instruct):"
+        dlg = ModernInputDialog(
+            parent=self,
+            title="➕ Adicionar Modelo",
+            label=f"Digite o nome ou ID do modelo para {provider}:",
+            placeholder="ex: meta/llama-3.2-11b-vision-instruct"
         )
-        if ok and text.strip():
-            model_id = text.strip()
-            if model_manager.add_model_to_provider(provider, model_id):
-                self.load_settings_models_for_category(provider)
-                self.refresh_model_combo()
-                self.status_label.setText(f"✓ Modelo '{model_id}' adicionado a {provider}!")
-            else:
-                self.status_label.setText(f"⚠️ O modelo já existe na categoria {provider}.")
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            model_id = dlg.get_text().strip()
+            if model_id:
+                if model_manager.add_model_to_provider(provider, model_id):
+                    self.load_settings_models_for_category(provider)
+                    self.refresh_model_combo()
+                    self.status_label.setText(f"✓ Modelo '{model_id}' adicionado a {provider}!")
+                else:
+                    self.status_label.setText(f"⚠️ O modelo já existe na categoria {provider}.")
 
     def edit_selected_model(self):
         curr_cat_row = self.settings_provider_list.currentRow()
-        curr_model_row = self.settings_models_list.currentRow()
-        if curr_cat_row < 0 or curr_model_row < 0:
+        if curr_cat_row < 0:
+            self.status_label.setText("⚠️ Selecione um provedor primeiro.")
             return
+
+        selected_items = self.settings_models_list.selectedItems()
+        if len(selected_items) > 1:
+            self.status_label.setText("ℹ️ Selecione apenas 1 modelo para editar.")
+            return
+
+        curr_model_row = self.settings_models_list.currentRow()
+        if curr_model_row < 0:
+            if self.settings_models_list.count() > 0:
+                self.settings_models_list.setCurrentRow(0)
+                curr_model_row = 0
+            else:
+                self.status_label.setText("⚠️ Nenhum modelo disponível para editar neste provedor.")
+                return
 
         cat_item = self.settings_provider_list.item(curr_cat_row)
         provider = cat_item.data(Qt.ItemDataRole.UserRole) or cat_item.text()
         old_model = self.settings_models_list.item(curr_model_row).data(Qt.ItemDataRole.UserRole)
 
-        text, ok = QInputDialog.getText(
-            self,
-            "Editar Modelo",
-            f"Editar ID do modelo em {provider}:",
-            text=old_model
+        dlg = ModernInputDialog(
+            parent=self,
+            title="✏️ Editar Modelo",
+            label=f"Editar ID do modelo em {provider}:",
+            default_text=old_model
         )
-        if ok and text.strip() and text.strip() != old_model:
-            new_model = text.strip()
-            if model_manager.edit_model_in_provider(provider, old_model, new_model):
-                self.load_settings_models_for_category(provider)
-                self.refresh_model_combo()
-                self.status_label.setText(f"✓ Modelo atualizado para '{new_model}'!")
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            new_model = dlg.get_text().strip()
+            if new_model and new_model != old_model:
+                if model_manager.edit_model_in_provider(provider, old_model, new_model):
+                    self.load_settings_models_for_category(provider)
+                    self.refresh_model_combo()
+                    self.status_label.setText(f"✓ Modelo atualizado para '{new_model}'!")
+                else:
+                    self.status_label.setText(f"⚠️ Erro ao atualizar o modelo '{old_model}'.")
 
     def remove_selected_model(self):
         curr_cat_row = self.settings_provider_list.currentRow()
-        curr_model_row = self.settings_models_list.currentRow()
-        if curr_cat_row < 0 or curr_model_row < 0:
+        if curr_cat_row < 0:
+            self.status_label.setText("⚠️ Selecione um provedor primeiro.")
+            return
+
+        selected_items = self.settings_models_list.selectedItems()
+        if not selected_items:
+            curr_model_row = self.settings_models_list.currentRow()
+            if curr_model_row >= 0:
+                item = self.settings_models_list.item(curr_model_row)
+                if item:
+                    selected_items = [item]
+
+        if not selected_items:
+            self.status_label.setText("⚠️ Selecione um ou mais modelos para remover.")
             return
 
         cat_item = self.settings_provider_list.item(curr_cat_row)
         provider = cat_item.data(Qt.ItemDataRole.UserRole) or cat_item.text()
-        model_id = self.settings_models_list.item(curr_model_row).data(Qt.ItemDataRole.UserRole)
+        model_ids = [item.data(Qt.ItemDataRole.UserRole) for item in selected_items if item.data(Qt.ItemDataRole.UserRole)]
+        if not model_ids:
+            return
 
-        reply = QMessageBox.question(
-            self,
-            "Remover Modelo",
-            f"Tem certeza que deseja remover o modelo '{model_id}' da categoria {provider}?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.No
+        if len(model_ids) == 1:
+            m_id = model_ids[0]
+            title = "🗑️ Remover Modelo"
+            msg = f"Tem certeza que deseja remover o modelo:\n\n'{m_id}'\n\nda categoria {provider}?"
+            danger_text = "Excluir"
+        else:
+            title = f"🗑️ Remover {len(model_ids)} Modelos"
+            preview_items = [f"• {mid}" for mid in model_ids[:5]]
+            preview = "\n".join(preview_items)
+            if len(model_ids) > 5:
+                preview += f"\n... e mais {len(model_ids) - 5} modelo(s)"
+            msg = f"Tem certeza que deseja remover os {len(model_ids)} modelos selecionados da categoria {provider}?\n\n{preview}"
+            danger_text = f"Excluir ({len(model_ids)})"
+
+        dlg = ModernConfirmDialog(
+            parent=self,
+            title=title,
+            message=msg,
+            danger_text=danger_text,
+            cancel_text="Cancelar"
         )
-        if reply == QMessageBox.StandardButton.Yes:
-            if model_manager.remove_model_from_provider(provider, model_id):
-                self.load_settings_models_for_category(provider)
-                self.refresh_model_combo()
-                self.status_label.setText(f"✓ Modelo '{model_id}' removido.")
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            success_count = 0
+            for m_id in model_ids:
+                if model_manager.remove_model_from_provider(provider, m_id):
+                    success_count += 1
+
+            self.load_settings_models_for_category(provider)
+            self.refresh_model_combo()
+            self._update_delete_button_label()
+
+            if success_count == 1:
+                self.status_label.setText(f"✓ Modelo '{model_ids[0]}' removido.")
+            else:
+                self.status_label.setText(f"✓ {success_count} modelos removidos da categoria {provider}.")
 
     def set_selected_as_active(self):
         curr_cat_row = self.settings_provider_list.currentRow()
-        curr_model_row = self.settings_models_list.currentRow()
-        if curr_cat_row < 0 or curr_model_row < 0:
+        if curr_cat_row < 0:
+            self.status_label.setText("⚠️ Selecione um provedor primeiro.")
             return
+
+        current_item = self.settings_models_list.currentItem()
+        if not current_item and self.settings_models_list.selectedItems():
+            current_item = self.settings_models_list.selectedItems()[0]
+
+        if not current_item:
+            if self.settings_models_list.count() > 0:
+                self.settings_models_list.setCurrentRow(0)
+                current_item = self.settings_models_list.item(0)
+            else:
+                self.status_label.setText("⚠️ Nenhum modelo selecionado.")
+                return
 
         cat_item = self.settings_provider_list.item(curr_cat_row)
         provider = cat_item.data(Qt.ItemDataRole.UserRole) or cat_item.text()
-        model_id = self.settings_models_list.item(curr_model_row).data(Qt.ItemDataRole.UserRole)
+        model_id = current_item.data(Qt.ItemDataRole.UserRole)
+        if not model_id:
+            return
 
         model_manager.set_active_model(provider, model_id)
         self.load_settings_models_for_category(provider)
         self.refresh_model_combo()
-        self.status_label.setText(f"⭐ '{model_id}' definido como o modelo padrão ativo!")
+
+        # Retorna imediatamente para a tela de chat/captura onde o usuário estava
+        self.close_settings()
+
+        short_mod = model_id.split('/')[-1]
+        if getattr(self, 'last_failed_prompt', None):
+            self.search_input.setText(self.last_failed_prompt)
+            self.search_input.selectAll()
+            self.status_label.setText(f"⭐ Ativo: {short_mod} • Pressione Enter para reenviar ao novo modelo")
+        else:
+            self.status_label.setText(f"⭐ Modelo ativo: {provider.upper()} • {short_mod}")
+
+    def reload_theme(self):
+        """Sincroniza o tema do Metis ativo e reaplica os estilos no HUD."""
+        self.theme = theme_manager.get_theme_palette()
+        self.current_stylesheet = theme_manager.generate_main_stylesheet(self.theme)
+        self.card.setStyleSheet(self.current_stylesheet)
+        return self.theme
+
+    def refresh_model_menu(self):
+        """Recarrega o seletor inteligente de modelos agrupados por provedor em cascata e sincroniza cores com o Metis."""
+        # 1. Sincroniza dinamicamente o tema ativo do Metis
+        theme = self.reload_theme()
+        menu_stylesheet = theme_manager.generate_menu_stylesheet(theme)
+
+        active_prov, active_mod = model_manager.get_active_model()
+        self.current_provider = active_prov
+        self.current_model = active_mod
+
+        # Determina ícone e rótulo para o botão Pill
+        short_mod = active_mod.split('/')[-1] if active_mod else "Nenhum"
+        prov_icon = model_manager.get_provider_icon(active_prov)
+        self.model_btn.setText(f"{prov_icon} {active_prov.upper()} • {short_mod}  ▾")
+        self.model_btn.setToolTip(
+            f"Provedor ativo: {active_prov.upper()}\n"
+            f"Modelo ativo: {active_mod}\n\n"
+            f"Clique para abrir o menu inteligente organizado por provedor"
+        )
+
+        # Constrói o menu suspenso hierárquico com as cores do tema
+        menu = self.model_btn.menu()
+        if not menu:
+            menu = QMenu(self)
+            menu.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint)
+            menu.aboutToShow.connect(self.refresh_model_menu)
+            self.model_btn.setMenu(menu)
+
+        menu.blockSignals(True)
+        menu.clear()
+        menu.setStyleSheet(menu_stylesheet)
+
+        grouped = model_manager.get_grouped_model_list()
+        for group in grouped:
+            p_name = group["provider"]
+            p_key = group["key"]
+            p_icon = group["icon"]
+            models = group["models"]
+
+            is_active_prov = (p_key.lower() == active_prov.lower())
+            count_str = f"({len(models)})"
+            
+            # Título do submenu do provedor
+            if is_active_prov:
+                sub_title = f"{p_icon}  {p_name}  {count_str}  ●"
+            else:
+                sub_title = f"{p_icon}  {p_name}  {count_str}"
+
+            sub_menu = menu.addMenu(sub_title)
+            sub_menu.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint)
+            sub_menu.setStyleSheet(menu_stylesheet)
+
+            if not models:
+                empty_act = sub_menu.addAction("(Nenhum modelo cadastrado)")
+                empty_act.setEnabled(False)
+            else:
+                for m in models:
+                    is_active_mod = (is_active_prov and m == active_mod)
+                    
+                    if is_active_mod:
+                        item_text = f"✓  {m}  (Ativo)"
+                    else:
+                        item_text = f"    {m}"
+
+                    action = sub_menu.addAction(item_text)
+                    action.setToolTip(f"Provedor: {p_name}\nID do modelo: {m}")
+                    action.triggered.connect(
+                        lambda checked, pk=p_key, mid=m: self.on_model_selected(pk, mid)
+                    )
+
+        menu.addSeparator()
+        settings_act = menu.addAction("⚙️  Gerenciar Modelos e Provedores...")
+        settings_act.triggered.connect(self.open_settings)
+        menu.blockSignals(False)
 
     def refresh_model_combo(self):
-        """Recarrega a lista de modelos do model_manager dinamicamente."""
-        self.model_combo.blockSignals(True)
-        self.model_combo.clear()
-        
-        all_models = model_manager.get_flat_model_list()
-        active_prov, active_mod = model_manager.get_active_model()
-        
-        selected_idx = 0
-        for idx, (display_label, prov, mod_id) in enumerate(all_models):
-            clean_label = display_label.replace(" (Ativo)", "").strip()
-            if not clean_label.startswith("⚡"):
-                clean_label = f"⚡ {clean_label}"
-            self.model_combo.addItem(clean_label, (prov, mod_id))
-            
-            if prov.lower() == active_prov.lower() and mod_id == active_mod:
-                selected_idx = idx
-            elif prov.lower() == self.current_provider.lower() and mod_id == self.current_model and selected_idx == 0:
-                selected_idx = idx
+        """Alias para manter total retrocompatibilidade com chamadas existentes."""
+        self.refresh_model_menu()
 
-        self.model_combo.setCurrentIndex(selected_idx)
-        self.model_combo.blockSignals(False)
+    def on_model_selected(self, provider_key: str, model_id: str):
+        """Manipula a seleção de um modelo a partir de qualquer submenu de provedor."""
+        self.current_provider = provider_key
+        self.current_model = model_id
+        model_manager.set_active_model(provider_key, model_id)
         
-        data = self.model_combo.itemData(selected_idx)
-        if data:
-            self.current_provider, self.current_model = data
+        # Atualiza o botão e os checkmarks do menu
+        self.refresh_model_menu()
+        
+        short_mod = model_id.split('/')[-1]
+        prov_name = provider_key.upper()
+        
+        # Se havia um prompt com erro/timeout pendente, restaura no input
+        if getattr(self, 'last_failed_prompt', None):
+            self.search_input.setText(self.last_failed_prompt)
+            self.search_input.selectAll()
+            self.status_label.setText(f"⭐ Ativo: {prov_name} • {short_mod} • Pressione Enter para reenviar ao novo modelo")
+        else:
+            self.status_label.setText(f"✓ Modelo ativo: {prov_name} • {short_mod}")
 
-    def on_model_changed(self, index: int):
-        data = self.model_combo.itemData(index)
-        if data:
-            self.current_provider, self.current_model = data
-            model_manager.set_active_model(self.current_provider, self.current_model)
-            display_name = self.model_combo.itemText(index)
-            self.status_label.setText(f"✓ Modelo: {display_name}")
+    def on_model_changed(self, index: int = 0):
+        """Método de retrocompatibilidade."""
+        pass
 
     def on_submit_query(self):
         query = self.search_input.text().strip()
@@ -1325,6 +1779,7 @@ class ScreenAIOverlay(QWidget):
         if self._render_timer.isActive():
             self._render_timer.stop()
         self.current_stream_chunk = ""
+        self.last_failed_prompt = None
         self.chat_history.append({"role": "assistant", "content": final_text})
         self.rendered_markdown_history += final_text
         self._flush_markdown_render()
@@ -1355,9 +1810,20 @@ class ScreenAIOverlay(QWidget):
             self.copy_cmd_btn.hide()
 
     def on_analysis_error(self, error_msg: str):
-        self.status_label.setText("⚠️ Erro durante o processamento.")
-        self.response_browser.append(f"\n\n**Erro:** {error_msg}")
+        if self._render_timer.isActive():
+            self._render_timer.stop()
+        self.current_stream_chunk = ""
+
+        # Recupera e remove a pergunta com falha do histórico para manter a integridade dos turnos
+        if self.chat_history and self.chat_history[-1].get("role") == "user":
+            self.last_failed_prompt = self.chat_history.pop()["content"]
+
+        self.status_label.setText("⚠️ Falha/Timeout. Escolha outro modelo em 'Mais Ações' (Alt+M).")
+        self.response_browser.append(f"\n\n> ⚠️ **Falha/Timeout:** {error_msg}\n\n*Dica: Clique em **⋯ Mais Ações** para alternar de modelo e tentar novamente.*")
         self.search_input.setEnabled(True)
+        if getattr(self, 'last_failed_prompt', None):
+            self.search_input.setText(self.last_failed_prompt)
+            self.search_input.selectAll()
         self.search_input.setFocus()
 
     def extract_commands_from_text(self, text: str) -> List[str]:
@@ -1512,6 +1978,14 @@ class ScreenAIOverlay(QWidget):
                     self.set_selected_as_active()
                     event.accept()
                     return
+            elif key == Qt.Key.Key_Delete:
+                self.remove_selected_model()
+                event.accept()
+                return
+            elif key == Qt.Key.Key_F2:
+                self.edit_selected_model()
+                event.accept()
+                return
             elif key == Qt.Key.Key_Escape:
                 self.close_settings()
                 event.accept()

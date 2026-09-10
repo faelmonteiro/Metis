@@ -59,15 +59,17 @@ DEFAULT_MODELS_DATA = {
 }
 
 def get_config_path() -> Path:
-    """Retorna o caminho do arquivo de configuração ativo (sincronizado com o Metis)."""
-    # 1. Procura primeiro no diretório raiz do Metis (~/Metis/config_models.json)
-    root_config = Path(__file__).resolve().parent.parent / "config_models.json"
-    if root_config.exists():
-        return root_config
-    
-    for mp in METIS_CONFIG_PATHS:
-        if mp.exists():
-            return mp
+    """Retorna o caminho do arquivo de configuração ativo mais recente (sincronizado com o Metis)."""
+    candidates = [
+        Path.home() / ".local/share/metis/app/config_models.json",
+        Path.home() / "Metis" / "config_models.json",
+        Path(__file__).resolve().parent.parent / "config_models.json",
+        Path.home() / ".config" / "metis" / "config_models.json",
+    ]
+    existing = [p for p in candidates if p.exists() and p.is_file()]
+    if existing:
+        existing.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+        return existing[0]
 
     return DEFAULT_CONFIG_PATH
 
@@ -140,52 +142,116 @@ def get_models_for_provider(provider: str) -> List[str]:
     return []
 
 def add_model_to_provider(provider: str, model_id: str) -> bool:
-    """Adiciona um novo modelo a uma categoria."""
+    """Adiciona um novo modelo a uma categoria (builtin ou custom_servers)."""
     model_id = model_id.strip()
     if not model_id:
         return False
     cfg = load_models_config(force_reload=True)
     if "builtin_models" not in cfg:
         cfg["builtin_models"] = {}
-        
+
+    # 1. Verifica se existe em builtin_models
     matched_prov = None
     for k in cfg["builtin_models"].keys():
         if k.lower() == provider.lower():
             matched_prov = k
             break
-            
-    if not matched_prov:
-        matched_prov = provider
-        cfg["builtin_models"][matched_prov] = []
-        
-    if model_id not in cfg["builtin_models"][matched_prov]:
-        cfg["builtin_models"][matched_prov].append(model_id)
+
+    if matched_prov:
+        if model_id not in cfg["builtin_models"][matched_prov]:
+            cfg["builtin_models"][matched_prov].append(model_id)
+            save_models_config(cfg)
+            return True
+        return False
+
+    # 2. Verifica se é um servidor customizado
+    for srv in cfg.get("custom_servers", []):
+        if srv.get("nome", "").lower() == provider.lower() or srv.get("id", "").lower() == provider.lower():
+            if "modelos" not in srv:
+                srv["modelos"] = []
+            if model_id not in srv["modelos"]:
+                srv["modelos"].append(model_id)
+                save_models_config(cfg)
+                return True
+            return False
+
+    # 3. Se não existe, cria em builtin_models
+    cfg["builtin_models"][provider] = [model_id]
+    save_models_config(cfg)
+    return True
+
+def remove_model_from_provider(provider: str, model_id: str) -> bool:
+    """Remove um modelo de uma categoria (builtin ou custom_servers) e ajusta o modelo ativo se necessário."""
+    cfg = load_models_config(force_reload=True)
+    removed = False
+
+    # 1. Tenta remover de builtin_models
+    for k, mlist in cfg.get("builtin_models", {}).items():
+        if k.lower() == provider.lower() and model_id in mlist:
+            mlist.remove(model_id)
+            removed = True
+            break
+
+    # 2. Tenta remover de custom_servers
+    if not removed:
+        for srv in cfg.get("custom_servers", []):
+            if srv.get("nome", "").lower() == provider.lower() or srv.get("id", "").lower() == provider.lower():
+                mlist = srv.get("modelos", [])
+                if model_id in mlist:
+                    mlist.remove(model_id)
+                    removed = True
+                    break
+
+    if removed:
+        # Se o modelo removido era o ativo, escolhe o próximo modelo disponível
+        active_mod = cfg.get("active_model", "")
+        if active_mod == model_id:
+            # Tenta pegar outro modelo deste provedor
+            remaining = get_models_for_provider(provider)
+            if remaining:
+                cfg["active_model"] = remaining[0]
+            else:
+                # Tenta qualquer outro modelo
+                flat = get_flat_model_list()
+                if flat:
+                    cfg["active_provider"] = flat[0][1]
+                    cfg["active_model"] = flat[0][2]
         save_models_config(cfg)
         return True
     return False
 
-def remove_model_from_provider(provider: str, model_id: str) -> bool:
-    """Remove um modelo de uma categoria."""
-    cfg = load_models_config(force_reload=True)
-    for k, mlist in cfg.get("builtin_models", {}).items():
-        if k.lower() == provider.lower() and model_id in mlist:
-            mlist.remove(model_id)
-            save_models_config(cfg)
-            return True
-    return False
-
 def edit_model_in_provider(provider: str, old_model_id: str, new_model_id: str) -> bool:
-    """Edita um modelo existente."""
+    """Edita um modelo existente (builtin ou custom_servers)."""
     new_model_id = new_model_id.strip()
     if not new_model_id:
         return False
     cfg = load_models_config(force_reload=True)
+    edited = False
+
+    # 1. Tenta editar em builtin_models
     for k, mlist in cfg.get("builtin_models", {}).items():
         if k.lower() == provider.lower() and old_model_id in mlist:
             idx = mlist.index(old_model_id)
             mlist[idx] = new_model_id
-            save_models_config(cfg)
-            return True
+            edited = True
+            break
+
+    # 2. Tenta editar em custom_servers
+    if not edited:
+        for srv in cfg.get("custom_servers", []):
+            if srv.get("nome", "").lower() == provider.lower() or srv.get("id", "").lower() == provider.lower():
+                mlist = srv.get("modelos", [])
+                if old_model_id in mlist:
+                    idx = mlist.index(old_model_id)
+                    mlist[idx] = new_model_id
+                    edited = True
+                    break
+
+    if edited:
+        if cfg.get("active_model") == old_model_id:
+            cfg["active_model"] = new_model_id
+        save_models_config(cfg)
+        return True
     return False
 
 def get_active_model() -> Tuple[str, str]:
@@ -215,40 +281,71 @@ def set_user_setting(key: str, value):
     cfg["user_settings"][key] = value
     save_models_config(cfg)
 
-def get_flat_model_list() -> List[Tuple[str, str, str]]:
+PROVIDER_ICONS = {
+    "nvidia": "⚡",
+    "gemini": "💎",
+    "openrouter": "🌐",
+    "ollama": "🦙",
+    "groq": "🚀",
+    "g4f": "🤖",
+    "anthropic": "🧠",
+    "openai": "🔮",
+    "mistral": "🌪️",
+    "deepseek": "🐳"
+}
+
+def get_provider_icon(provider: str) -> str:
+    """Retorna o ícone amigável associado a um provedor."""
+    return PROVIDER_ICONS.get(provider.lower(), "🤖")
+
+def get_grouped_model_list() -> List[Dict]:
     """
-    Retorna lista plana de todos os modelos para o combobox da barra:
-    [(Nome Exibição, provedor_key, model_id), ...]
+    Retorna lista estruturada de provedores com seus respectivos modelos e metadados.
+    Ideal para construção de menus hierárquicos (Submenus de IAs por Provedor).
     """
     cfg = load_models_config(force_reload=True)
-    items = []
+    grouped = []
     
-    icons = {
-        "nvidia": "⚡",
-        "gemini": "✨",
-        "openrouter": "🌐",
-        "ollama": "💻",
-        "groq": "🚀",
-        "g4f": "🤖"
-    }
-
-    # 1. Modelos em builtin_models
+    # 1. Provedores em builtin_models
     for prov_name, models_list in cfg.get("builtin_models", {}).items():
         prov_key = prov_name.lower()
-        icon = icons.get(prov_key, "🤖")
-        for m in models_list:
+        icon = get_provider_icon(prov_key)
+        grouped.append({
+            "provider": prov_name,
+            "key": prov_key,
+            "icon": icon,
+            "models": list(models_list)
+        })
+        
+    # 2. Modelos em custom_servers
+    for srv in cfg.get("custom_servers", []):
+        srv_nome = srv.get("nome", "Custom")
+        srv_id = srv.get("id", srv_nome).lower()
+        icon = get_provider_icon(srv_id)
+        if not any(g["key"] == srv_id for g in grouped):
+            grouped.append({
+                "provider": srv_nome,
+                "key": srv_id,
+                "icon": icon,
+                "models": list(srv.get("modelos", []))
+            })
+            
+    return grouped
+
+def get_flat_model_list() -> List[Tuple[str, str, str]]:
+    """
+    Retorna lista plana de todos os modelos para retrocompatibilidade:
+    [(Nome Exibição, provedor_key, model_id), ...]
+    """
+    grouped = get_grouped_model_list()
+    items = []
+    for g in grouped:
+        prov_name = g["provider"]
+        prov_key = g["key"]
+        icon = g["icon"]
+        for m in g["models"]:
             short_name = m.split("/")[-1]
             display_name = f"{icon} {prov_name} • {short_name}"
             items.append((display_name, prov_key, m))
-
-    # 2. Modelos em custom_servers (se houver)
-    for srv in cfg.get("custom_servers", []):
-        srv_nome = srv.get("nome", "Custom")
-        srv_id = srv.get("id", "custom").lower()
-        srv_icon = icons.get(srv_id, "🌐")
-        for m in srv.get("modelos", []):
-            short_name = m.split("/")[-1]
-            display_name = f"{srv_icon} {srv_nome} • {short_name}"
-            items.append((display_name, srv_id, m))
-
     return items
+

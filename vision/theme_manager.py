@@ -159,20 +159,24 @@ def _hex_to_rgba(hex_str: str, alpha: float) -> str:
 
 
 def get_metis_saved_preferences() -> Dict[str, Any]:
-    """Lê as preferências salvas no config_models.json do Metis."""
+    """Lê as preferências salvas no config_models.json mais recente do Metis."""
     candidates = [
-        Path(__file__).parent.parent / "config_models.json",
+        Path.home() / ".local/share/metis/app/config_models.json",
         Path.home() / "Metis" / "config_models.json",
+        Path(__file__).parent.parent / "config_models.json",
         Path.home() / ".config" / "metis" / "config_models.json",
     ]
-    for p in candidates:
-        if p.exists() and p.is_file():
-            try:
-                data = json.loads(p.read_text(encoding="utf-8"))
-                if isinstance(data, dict) and "preferences" in data:
-                    return data["preferences"]
-            except Exception:
-                pass
+    existing = [p for p in candidates if p.exists() and p.is_file()]
+    if not existing:
+        return {}
+    existing.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    for p in existing:
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and "preferences" in data:
+                return data["preferences"]
+        except Exception:
+            pass
     return {}
 
 
@@ -315,21 +319,27 @@ QLabel#ModeBadge {{
     font-family: {t["font_family"]};
 }}
 
-QComboBox#ModelSelector {{
+QPushButton#ModelSelector, QComboBox#ModelSelector {{
     background-color: {t["inner_box_bg"]};
     color: {t["text_primary"]};
     border: 1px solid {t["gold_border"]};
     border-radius: 10px;
-    padding: 3px 8px;
+    padding: 3px 10px;
     font-size: 11px;
     font-weight: 600;
-    min-width: 150px;
+    min-width: 140px;
+    text-align: left;
     font-family: {t["font_family"]};
 }}
 
-QComboBox#ModelSelector:hover {{
+QPushButton#ModelSelector:hover, QComboBox#ModelSelector:hover {{
     background-color: {t["inner_box_hover"]};
     border-color: {t["accent"]};
+}}
+
+QPushButton#ModelSelector::menu-indicator {{
+    image: none;
+    width: 0px;
 }}
 
 QComboBox#ModelSelector::drop-down {{
@@ -346,6 +356,40 @@ QComboBox#ModelSelector QAbstractItemView {{
     border-radius: 8px;
     padding: 6px;
     font-family: {t["font_family"]};
+}}
+
+/* Menus e Submenus Hierárquicos de Provedores e Modelos */
+QMenu {{
+    background-color: {t["card_bg_hex"]};
+    color: {t["text_primary"]};
+    border: 1px solid {t["gold_border"]};
+    border-radius: 10px;
+    padding: 5px;
+    font-family: {t["font_family"]};
+    font-size: 11.5px;
+}}
+
+QMenu::item {{
+    background: transparent;
+    padding: 6px 18px 6px 12px;
+    border-radius: 6px;
+    color: {t["text_primary"]};
+    font-size: 11px;
+}}
+
+QMenu::item:selected {{
+    background-color: {t["inner_box_hover"]};
+    color: {t["accent"]};
+}}
+
+QMenu::item:disabled {{
+    color: {t["text_muted"]};
+}}
+
+QMenu::separator {{
+    height: 1px;
+    background-color: {t["border_subtle"]};
+    margin: 4px 6px;
 }}
 
 /* Botões Circulares do Cabeçalho */
@@ -833,3 +877,54 @@ def get_action_tiles_data(theme: Optional[Dict[str, Any]] = None) -> list:
         ("Recortar Área", "Alt+C", "⛶", "region_capture"),
         ("Mais Ações", "Alt+M", "⋯", "settings"),
     ]
+
+
+def generate_menu_stylesheet(theme: Optional[Dict[str, Any]] = None) -> str:
+    """
+    Gera o CSS específico para menus e submenus suspensos, garantindo sincronização
+    visual perfeita com o tema ativo do Metis.
+    """
+    t = theme or get_theme_palette()
+    return f"""
+QMenu {{
+    background-color: {t["card_bg_hex"]};
+    color: {t["text_primary"]};
+    border: 1.5px solid {t["gold_border"]};
+    border-radius: 12px;
+    padding: 6px;
+    font-family: {t["font_family"]};
+    font-size: 11.5px;
+}}
+
+QMenu::item {{
+    background-color: transparent;
+    padding: 6px 20px 6px 14px;
+    border-radius: 6px;
+    color: {t["text_primary"]};
+    font-size: 11.5px;
+    font-weight: 500;
+}}
+
+QMenu::item:selected {{
+    background-color: {t["inner_box_hover"]};
+    color: {t["accent"]};
+    font-weight: 600;
+}}
+
+QMenu::item:disabled {{
+    color: {t["text_muted"]};
+}}
+
+QMenu::separator {{
+    height: 1px;
+    background-color: {t["border_subtle"]};
+    margin: 5px 8px;
+}}
+
+QMenu::indicator {{
+    width: 14px;
+    height: 14px;
+    left: 4px;
+}}
+"""
+

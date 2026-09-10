@@ -90,6 +90,6 @@
   "user_settings": {
     "is_sidebar_collapsed": true
   },
-  "active_provider": "nvidia",
-  "active_model": "meta/llama-3.2-90b-vision-instruct"
+  "active_provider": "openrouter",
+  "active_model": "liquid/lfm-2.5-2.6b:free"
 }
