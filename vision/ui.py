@@ -1075,42 +1075,47 @@ class ScreenAIOverlay(QWidget):
         return None
 
     def get_active_monitor_workarea(self) -> tuple[int, int, int, int]:
-        """Calcula com precisão a área útil do monitor ativo no Hyprland."""
-        if not os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"):
-            return (0, 0, 1920, 1080)
+        """Calcula com precisão a área útil do monitor ativo no Hyprland ou via Qt nativo."""
+        if os.environ.get("HYPRLAND_INSTANCE_SIGNATURE"):
+            try:
+                r = subprocess.run(["hyprctl", "monitors", "-j"], stdout=subprocess.PIPE, text=True, timeout=0.5)
+                if r.returncode == 0 and r.stdout.strip():
+                    monitors = json.loads(r.stdout)
+                    focused_mon = next((m for m in monitors if m.get("focused")), monitors[0])
+                    mx = int(focused_mon.get("x", 0))
+                    my = int(focused_mon.get("y", 0))
+                    mw = int(focused_mon.get("width", 1920))
+                    mh = int(focused_mon.get("height", 1080))
+                    scale = float(focused_mon.get("scale", 1.0))
+                    
+                    if scale > 0 and scale != 1.0:
+                        mw = int(mw / scale)
+                        mh = int(mh / scale)
+
+                    reserved = focused_mon.get("reserved", [0, 0, 0, 0])
+                    r_left = int(reserved[0] / scale if scale > 0 else reserved[0])
+                    r_top = int(reserved[1] / scale if scale > 0 else reserved[1])
+                    r_right = int(reserved[2] / scale if scale > 0 else reserved[2])
+                    r_bottom = int(reserved[3] / scale if scale > 0 else reserved[3])
+
+                    work_x = mx + r_left
+                    work_y = my + r_top
+                    work_w = mw - r_left - r_right
+                    work_h = mh - r_top - r_bottom
+                    return work_x, work_y, work_w, work_h
+            except Exception:
+                pass
+
+        # Fallback nativo universal cross-desktop (GNOME, KDE, XFCE, Cinnamon, X11, Wayland)
         try:
-            r = subprocess.run(["hyprctl", "monitors", "-j"], stdout=subprocess.PIPE, text=True, timeout=0.5)
-            if r.returncode == 0 and r.stdout.strip():
-                monitors = json.loads(r.stdout)
-                focused_mon = next((m for m in monitors if m.get("focused")), monitors[0])
-                mx = int(focused_mon.get("x", 0))
-                my = int(focused_mon.get("y", 0))
-                mw = int(focused_mon.get("width", 1920))
-                mh = int(focused_mon.get("height", 1080))
-                scale = float(focused_mon.get("scale", 1.0))
-                
-                if scale > 0 and scale != 1.0:
-                    mw = int(mw / scale)
-                    mh = int(mh / scale)
-
-                reserved = focused_mon.get("reserved", [0, 0, 0, 0])
-                r_left = int(reserved[0] / scale if scale > 0 else reserved[0])
-                r_top = int(reserved[1] / scale if scale > 0 else reserved[1])
-                r_right = int(reserved[2] / scale if scale > 0 else reserved[2])
-                r_bottom = int(reserved[3] / scale if scale > 0 else reserved[3])
-
-                work_x = mx + r_left
-                work_y = my + r_top
-                work_w = mw - r_left - r_right
-                work_h = mh - r_top - r_bottom
-                return work_x, work_y, work_w, work_h
+            cursor_pos = QCursor.pos()
+            screen = QGuiApplication.screenAt(cursor_pos) or QGuiApplication.primaryScreen()
+            if screen:
+                geo = screen.availableGeometry()
+                return geo.x(), geo.y(), geo.width(), geo.height()
         except Exception:
             pass
 
-        screen = QGuiApplication.primaryScreen()
-        if screen:
-            geo = screen.availableGeometry()
-            return geo.x(), geo.y(), geo.width(), geo.height()
         return 0, 0, 1920, 1080
 
     def showEvent(self, event):
@@ -1370,16 +1375,23 @@ class ScreenAIOverlay(QWidget):
         providers = model_manager.get_providers()
         active_prov, _ = model_manager.get_active_model()
 
+        seen_cats = set()
         active_row = 0
-        for i, prov in enumerate(providers):
-            display_name = PROVIDER_ICONS.get(prov.lower(), f"⚡ {prov.upper()}")
+        current_idx = 0
+        for prov in providers:
+            prov_key = prov.strip().lower()
+            if prov_key in seen_cats:
+                continue
+            seen_cats.add(prov_key)
+            display_name = PROVIDER_ICONS.get(prov_key, f"⚡ {prov.upper()}")
             item = QListWidgetItem(display_name)
             item.setData(Qt.ItemDataRole.UserRole, prov)
             self.settings_provider_list.addItem(item)
-            if prov.lower() == active_prov.lower():
-                active_row = i
+            if prov_key == active_prov.lower():
+                active_row = current_idx
+            current_idx += 1
 
-        if providers:
+        if self.settings_provider_list.count() > 0:
             self.settings_provider_list.setCurrentRow(active_row)
 
     def on_settings_category_selected(self, row: int):

@@ -445,29 +445,7 @@ class ModernApisDialog(QDialog):
             "Chave unificada para centenas de modelos comerciais e gratuitos (openrouter.ai/keys)"
         )
 
-        # 5. Ollama Host
-        self.input_ollama = self._add_api_field(
-            c_layout,
-            "OLLAMA HOST URL",
-            "🏛️",
-            "OLLAMA_HOST",
-            getattr(config, "OLLAMA_HOST", "http://localhost:11434"),
-            "Endereço do servidor Ollama local (padrão: http://localhost:11434)",
-            is_password=False
-        )
-
-        # 6. SearXNG URL
-        self.input_searxng = self._add_api_field(
-            c_layout,
-            "SEARXNG INSTANCE URL",
-            "🔍",
-            "SEARXNG_URL",
-            getattr(config, "SEARXNG_URL", "http://localhost:8080"),
-            "Endereço do motor de busca privativo (padrão: http://localhost:8080)",
-            is_password=False
-        )
-
-        # 6. Configurações Extras
+        # 5. Configurações Extras
         extra_card = QFrame()
         extra_card.setProperty("class", "ApiCard")
         l_ex = QVBoxLayout(extra_card)
@@ -505,7 +483,7 @@ class ModernApisDialog(QDialog):
         btn_cancel.clicked.connect(self.reject)
         f_layout.addWidget(btn_cancel)
 
-        btn_save = QPushButton("💾 Salvar Configurações no .env")
+        btn_save = QPushButton("💾 Salvar Configurações")
         btn_save.setProperty("class", "PrimaryBtn")
         btn_save.clicked.connect(self.save_all_keys)
         f_layout.addWidget(btn_save)
@@ -577,8 +555,6 @@ class ModernApisDialog(QDialog):
         groq_val = self.input_groq.text().strip()
         nvidia_val = self.input_nvidia.text().strip()
         openrouter_val = self.input_openrouter.text().strip()
-        ollama_val = self.input_ollama.text().strip()
-        searx_val = self.input_searxng.text().strip()
         cmd_val = "1" if self.chk_enable_cmd.isChecked() else "0"
         fetch_val = "1" if self.chk_fetch_page.isChecked() else "0"
 
@@ -587,10 +563,6 @@ class ModernApisDialog(QDialog):
         salvar_variavel_env("GROQ_API_KEY", groq_val)
         salvar_variavel_env("NVIDIA_API_KEY", nvidia_val)
         salvar_variavel_env("OPENROUTER_API_KEY", openrouter_val)
-        if ollama_val:
-            salvar_variavel_env("OLLAMA_HOST", ollama_val)
-        if searx_val:
-            salvar_variavel_env("SEARXNG_URL", searx_val)
         salvar_variavel_env("ENABLE_COMMAND_TOOL", cmd_val)
         salvar_variavel_env("FETCH_PAGE_CONTENT", fetch_val)
 
@@ -599,10 +571,6 @@ class ModernApisDialog(QDialog):
         config.GROQ_API_KEY = groq_val
         config.NVIDIA_API_KEY = nvidia_val
         os.environ["OPENROUTER_API_KEY"] = openrouter_val
-        if ollama_val:
-            config.OLLAMA_HOST = ollama_val
-        if searx_val:
-            config.SEARXNG_URL = searx_val
         config.ENABLE_COMMAND_TOOL = (cmd_val == "1")
         config.FETCH_PAGE_CONTENT = (fetch_val == "1")
 
@@ -4103,7 +4071,7 @@ class MetisMainWindow(QMainWindow):
         act_sessions = menu.addAction("📑 Gerenciar Turnos & Histórico")
         act_sessions.triggered.connect(self.open_sessions_page)
 
-        act_apis = menu.addAction("🔑 Chaves de API & URLs (.env)")
+        act_apis = menu.addAction("🔑 Configurar Chaves de API")
         act_apis.triggered.connect(self.show_apis_dialog)
 
         menu.addSeparator()
@@ -4136,7 +4104,7 @@ class MetisMainWindow(QMainWindow):
         act_add = menu.addAction("➕ Cadastrar Novo Servidor / API (OpenAI)...")
         act_add.triggered.connect(self.show_add_server_dialog)
 
-        act_apis = menu.addAction("🔑 Chaves de API & URLs (.env)...")
+        act_apis = menu.addAction("🔑 Configurar Chaves de API...")
         act_apis.triggered.connect(self.show_apis_dialog)
 
         menu.addSeparator()
@@ -4157,7 +4125,7 @@ class MetisMainWindow(QMainWindow):
 
         if provider_key in ["Gemini", "Groq", "NVIDIA"]:
             menu.addSeparator()
-            act_keys = menu.addAction("🔑 Configurar Chaves de API (.env)...")
+            act_keys = menu.addAction("🔑 Configurar Chaves de API...")
             act_keys.triggered.connect(self.show_apis_dialog)
 
         self._exec_menu_aligned(menu, btn)
