@@ -10,6 +10,7 @@ while [ -L "$SCRIPT_PATH" ]; do
     [[ $SCRIPT_PATH != /* ]] && SCRIPT_PATH="$DIR/$SCRIPT_PATH"
 done
 DIR="$(cd -P "$(dirname "$SCRIPT_PATH")" && pwd)"
+PROJECT_ROOT="$(cd -P "$DIR/.." && pwd)"
 VENV_PYTHON="$DIR/.venv/bin/python"
 
 if [ ! -f "$VENV_PYTHON" ]; then
@@ -29,9 +30,10 @@ fi
 
 # Se não for modo headless, encerra instâncias anteriores para evitar janelas presas
 if [[ "$*" != *"--headless"* ]]; then
-    pkill -f "$DIR/main.py" 2>/dev/null || true
+    pkill -f "vision.main" 2>/dev/null || true
 fi
 
-# Executa o assistente passando todos os argumentos recebidos
-exec "$VENV_PYTHON" "$DIR/main.py" "$@"
+# Executa o assistente como pacote a partir da raiz do Metis, passando todos os argumentos
+cd "$PROJECT_ROOT"
+exec "$VENV_PYTHON" -m vision.main "$@"
 

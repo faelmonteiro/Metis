@@ -150,7 +150,7 @@ nano .env
 # 5. Inicie a GUI ou o Terminal
 python gui.py           # Abre a Interface Gráfica
 python app.py           # Abre no Terminal
-python vision/main.py   # Abre o Metis Vision
+python -m vision.main   # Abre o Metis Vision (packages Vision como módulo)
 ```
 
 ---

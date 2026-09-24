@@ -7,10 +7,7 @@ import os
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 
-try:
-    import config
-except ImportError:
-    from . import config
+from . import config
 
 IGNORE_DIRS = {
     ".git", ".venv", "venv", "node_modules", "__pycache__", ".cache",

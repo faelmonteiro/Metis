@@ -42,25 +42,21 @@ from PyQt6.QtWidgets import (
     QMenu
 )
 
-_vision_dir = str(Path(__file__).resolve().parent)
-if _vision_dir not in sys.path:
-    sys.path.insert(0, _vision_dir)
-
 # Adiciona caminho do Metis para importar utilitários compartilhados
 metis_root = Path(__file__).parent.parent
 if str(metis_root) not in sys.path:
     sys.path.insert(0, str(metis_root))
 from agente.ui.clipboard import extrair_blocos, _extrair_comando_e_comentario
 
-import config
-import model_manager
-from capture import capture_screen
-from ai_engine import VisionAIEngine
-from folder_analyzer import (
+from . import config
+from . import model_manager
+from .capture import capture_screen
+from .ai_engine import VisionAIEngine
+from .folder_analyzer import (
     format_folder_context, format_file_context, detect_and_attach_local_files,
     get_active_window_cwd, detect_save_target_path
 )
-import theme_manager
+from . import theme_manager
 
 PROVIDER_ICONS = {
     "nvidia": "⚡ NVIDIA",

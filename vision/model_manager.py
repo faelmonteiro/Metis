@@ -115,8 +115,8 @@ def get_active_model() -> Tuple[str, str]:
 
     if not model:
         try:
-            from config import DEFAULT_MODELS
-            model = DEFAULT_MODELS.get(prov, "meta/llama-3.2-11b-vision-instruct")
+            from . import config
+            model = config.DEFAULT_MODELS.get(prov, "meta/llama-3.2-11b-vision-instruct")
         except Exception:
             model = "meta/llama-3.2-11b-vision-instruct"
 

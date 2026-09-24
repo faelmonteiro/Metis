@@ -19,8 +19,8 @@ from PyQt6.QtWidgets import (
     QFrame
 )
 
-import model_manager
-import theme_manager
+from . import model_manager
+from . import theme_manager
 
 
 PROVIDER_ICONS = {

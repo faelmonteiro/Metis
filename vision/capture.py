@@ -10,7 +10,7 @@ import shutil
 import subprocess
 from typing import Optional, Tuple
 from PIL import Image
-import config
+from . import config
 
 def is_wayland() -> bool:
     return bool(os.getenv("WAYLAND_DISPLAY") or os.getenv("XDG_SESSION_TYPE") == "wayland")

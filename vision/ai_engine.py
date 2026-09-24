@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 from typing import Any, Generator, Optional
 import httpx
-import config
+from . import config
 
 # Timeout padrão para requisições HTTP (com 120s de leitura para modelos vision)
 _DEFAULT_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=10.0)
@@ -160,7 +160,7 @@ class VisionAIEngine:
                 return
         else:
             # Resolução dinâmica de Servidores Customizados cadastrados no Metis
-            import model_manager
+            from . import model_manager
             cfg = model_manager.load_models_config()
             custom_srv = next((s for s in cfg.get("custom_servers", []) if s.get("id", "").lower() == prov or s.get("nome", "").lower() == prov), None)
             if custom_srv:
@@ -244,7 +244,7 @@ class VisionAIEngine:
             yield from self._stream_ollama(b64_image, prompt, sys_prompt)
         else:
             # Verifica servidores customizados
-            import model_manager
+            from . import model_manager
             cfg = model_manager.load_models_config()
             custom_srv = next((s for s in cfg.get("custom_servers", []) if s.get("id", "").lower() == prov or s.get("nome", "").lower() == prov), None)
             if custom_srv:
@@ -366,7 +366,7 @@ class VisionAIEngine:
                 yield f"⚠️ Erro ao conectar ao Ollama: {str(e)}"
         else:
             # Verifica servidores customizados
-            import model_manager
+            from . import model_manager
             cfg = model_manager.load_models_config()
             custom_srv = next((s for s in cfg.get("custom_servers", []) if s.get("id", "").lower() == prov or s.get("nome", "").lower() == prov), None)
             if custom_srv:
@@ -539,7 +539,7 @@ class VisionAIEngine:
             yield f"⚠️ Erro ao conectar ao Ollama: {str(e)}"
 
 if __name__ == "__main__":
-    from capture import capture_screen
+    from .capture import capture_screen
     print("Testando motor de IA com captura...")
     engine = VisionAIEngine()
     print(f"Provedor ativo: {engine.provider} | Modelo: {engine.model}")

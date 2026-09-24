@@ -9,11 +9,11 @@ import subprocess
 import sys
 from pathlib import Path
 
-import config
-from capture import capture_screen
-from ai_engine import VisionAIEngine
+from . import config
+from .capture import capture_screen
+from .ai_engine import VisionAIEngine
 
-from folder_analyzer import format_folder_context, format_file_context
+from .folder_analyzer import format_folder_context, format_file_context
 
 def parse_args():
     parser = argparse.ArgumentParser(description="ScreenAI • Assistente Visual de Tela com IA")
@@ -112,7 +112,7 @@ def main():
         run_headless(args)
     else:
         # Modo Interface Gráfica Flutuante
-        from ui import run_app
+        from .ui import run_app
         sys.exit(run_app(capture_mode=args.mode, target_path=args.target))
 
 if __name__ == "__main__":
