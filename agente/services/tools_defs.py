@@ -310,7 +310,14 @@ COMANDOS_BLOQUEADOS = [
     r":\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:",
     r">\s*/dev/(sd|nvme|hd)",
     r"\bchmod\s+-R\s+777\s+/",
-    r"\bchown\s+-R\s+.*?\s+/"
+    r"\bchown\s+-R\s+.*?\s+/",
+    # Vetores de execução indireta / injeção (bloqueados para QUALQUER comando)
+    r"\$\(|`",
+    r"\b(eval|source)\b",
+    r"\b(?:sh|bash|zsh|python|python3|perl|ruby|php)\s+-[ce]\s+",
+    r"\bbase64\s+-d",
+    r"\b(curl|wget)\s+[^\|;&`]*\|\s*(?:sh|bash|sudo)\b",
+    r"\b(?:printf|echo|cat)\s+[^\|;&`]*\|\s*(?:sh|bash)\b",
 ]
 
 COMANDOS_DIAGNOSTICO = (
@@ -319,6 +326,10 @@ COMANDOS_DIAGNOSTICO = (
     "journalctl", "cat ", "head ", "tail ", "ls ", "ls -", "find ", "grep ", "which ", "whereis ", "whoami",
     "lscpu", "lsblk", "lspci", "lsusb", "sensors", "fastfetch", "neofetch", "arch", "hostname", "w", "who", "id"
 )
+
+# Operadores de shell que desqualificam um comando de diagnóstico para o AUTO-APPROVE.
+# O comando ainda pode ser executado se o usuário confirmar manualmente.
+_OPERADORES_SHELL = re.compile(r"[;&|<>`]|\$\(")
 
 def normalizar_comando(comando) -> str:
     """Limpa e normaliza argumentos de comando enviados por LLMs (listas, JSON, aspas)."""
@@ -390,9 +401,10 @@ def executar_comando(comando: str, diretorio: str = ".") -> str:
             cmd_eval = cmd_eval[len(bin_path):]
             break
 
-    eh_diagnostico = any(
-        cmd_eval.startswith(d) or cmd_lower.startswith(d) for d in COMANDOS_DIAGNOSTICO
-    ) and not any(op in cmd_lower for op in [">", "| rm", "| sh", "| bash", "; rm"])
+    eh_diagnostico = (
+        any(cmd_eval.startswith(d) or cmd_lower.startswith(d) for d in COMANDOS_DIAGNOSTICO)
+        and not _OPERADORES_SHELL.search(cmd_lower)
+    )
 
     if auto or eh_diagnostico:
         if auto:
