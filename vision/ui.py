@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 """
 Interface Gráfica Flutuante e Moderna (Metis Oracle • HUD Style) em PyQt6.
 Inclui:
@@ -92,8 +94,8 @@ class ModernInputDialog(QDialog):
                 x = p_geo.x() + (p_geo.width() - 460) // 2
                 y = p_geo.y() + (p_geo.height() - 195) // 2
                 self.move(max(10, x), max(10, y))
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(4, 4, 4, 4)
@@ -240,8 +242,8 @@ class ModernConfirmDialog(QDialog):
                 x = p_geo.x() + (p_geo.width() - 450) // 2
                 y = p_geo.y() + (p_geo.height() - 190) // 2
                 self.move(max(10, x), max(10, y))
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(4, 4, 4, 4)
@@ -1069,8 +1071,8 @@ class ScreenAIOverlay(QWidget):
                     if any(x in title or x in initial_title or x in cls or x in initial_cls for x in ["metis", "screenai"]):
                         self._cached_hypr_addr = c.get("address")
                         return self._cached_hypr_addr
-        except Exception:
-            pass
+        except Exception as _silent_e:
+            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
         return None
 
     def get_active_monitor_workarea(self) -> tuple[int, int, int, int]:
@@ -1102,8 +1104,8 @@ class ScreenAIOverlay(QWidget):
                     work_w = mw - r_left - r_right
                     work_h = mh - r_top - r_bottom
                     return work_x, work_y, work_w, work_h
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
         # Fallback nativo universal cross-desktop (GNOME, KDE, XFCE, Cinnamon, X11, Wayland)
         try:
@@ -1112,8 +1114,8 @@ class ScreenAIOverlay(QWidget):
             if screen:
                 geo = screen.availableGeometry()
                 return geo.x(), geo.y(), geo.width(), geo.height()
-        except Exception:
-            pass
+        except Exception as _silent_e:
+            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
         return 0, 0, 1920, 1080
 

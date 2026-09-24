@@ -184,8 +184,8 @@ def save_config(data: Dict[str, Any]) -> None:
         except Exception:
             try:
                 os.unlink(tmp_path)
-            except OSError:
-                pass
+            except OSError as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
             raise
 
     global _config_cache

@@ -1,3 +1,4 @@
+logger = logging.getLogger(__name__)
 import os
 import sys
 from pathlib import Path
@@ -10,8 +11,8 @@ if _venv_python.exists() and sys.executable != str(_venv_python):
 
 try:
     import readline
-except ImportError:
-    pass
+except ImportError as _silent_e:
+    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
 from agente.main import main
 

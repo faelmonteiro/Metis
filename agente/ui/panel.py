@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 import base64
 import json
 import os
@@ -111,8 +113,8 @@ def _obter_icone_kitty() -> str:
                 with open(icon_path, "rb") as f:
                     b64 = base64.b64encode(f.read()).decode("ascii")
                 return f"\x1b_Ga=T,f=100,c=2,r=1;{b64}\x1b\\"
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
     return ""
 
 
@@ -133,10 +135,10 @@ def _contar_registros_memoria(hm=None) -> int:
                             total += len(dados)
                         elif isinstance(dados, dict):
                             total += len(dados.get("historico", []))
-                except Exception:
-                    pass
-    except Exception:
-        pass
+                except Exception as _silent_e:
+                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
     return total
 
 

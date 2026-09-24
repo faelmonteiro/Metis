@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 import json
 import re
 
@@ -92,8 +94,8 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
                             m = re.search(r"try again in ([\d\.]+)s", corpo)
                             if m:
                                 espera = max(float(m.group(1)) + 1.0, 3.0)
-                        except Exception:
-                            pass
+                        except Exception as _silent_e:
+                            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
                         time.sleep(espera)
                         continue
                     _handle_error(res, model=model_name)

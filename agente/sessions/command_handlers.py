@@ -35,8 +35,8 @@ def handle_limpar(history_manager: HistoryManager) -> None:
         if conf == "s":
             history_manager.limpar()
             print(f"{GREEN}Histórico limpo.{RESET}")
-    except (KeyboardInterrupt, EOFError):
-        pass
+    except (KeyboardInterrupt, EOFError) as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
 
 def handle_modelo(service: BaseService, user_input: str) -> BaseService:

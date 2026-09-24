@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 import json
 import re
 
@@ -34,8 +36,8 @@ def listar_modelos() -> list:
         if res.status_code == 200:
             return [m.get("name", "") for m in res.json().get("models", [])]
 
-    except Exception:
-        pass
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
     return []
 
@@ -184,8 +186,8 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
                     from agente.services.media_cache import get_base64_media
                     data = get_base64_media(path)
                     images.append(data)
-                except Exception:
-                    pass
+                except Exception as _silent_e:
+                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
         
         if images:
             msg_obj["images"] = images

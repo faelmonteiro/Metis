@@ -46,8 +46,8 @@ class HistoryManager:
             backup = self.file_path.with_suffix(".json.bak")
             try:
                 self.file_path.replace(backup)
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
             self.historico = []
         except Exception as e:
             logger.exception("Falha ao carregar histórico")
@@ -69,8 +69,8 @@ class HistoryManager:
             except Exception:
                 try:
                     os.unlink(tmp_path)
-                except OSError:
-                    pass
+                except OSError as _silent_e:
+                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
                 raise
 
         except Exception as e:

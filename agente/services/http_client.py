@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 """
 Cliente HTTP compartilhado com Connection Pooling e Keep-Alive para o Metis.
 Reutiliza conexões TCP e handshakes TLS já abertos, economizando centenas de ms por chamada.
@@ -42,6 +44,6 @@ def close_http_client():
         if _client_instance is not None and not _client_instance.is_closed:
             try:
                 _client_instance.close()
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
             _client_instance = None

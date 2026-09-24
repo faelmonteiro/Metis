@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 """
 Gerenciador de Modelos e Provedores do Metis Vision.
 Wrapper fino que re-exporta do módulo centralizado agente.models.
@@ -256,8 +258,8 @@ def sync_with_metis() -> dict:
     if legacy.exists():
         try:
             legacy.unlink()
-        except OSError:
-            pass
+        except OSError as _silent_e:
+            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
     # 2. Sincroniza modelos do Ollama local (apenas modelos novos instalados)
     merged = False
@@ -276,8 +278,8 @@ def sync_with_metis() -> dict:
                     cur.append(m)
                     merged = True
             ollama_synced = True
-    except Exception:
-        pass
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
     if merged:
         save_models_config(cfg)
@@ -345,8 +347,8 @@ def remove_model_from_provider(provider: str, model_id: str) -> bool:
         try:
             from agente.models.storage import purge_model_from_legacy_files
             purge_model_from_legacy_files(model_id)
-        except ImportError:
-            pass
+        except ImportError as _silent_e:
+            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
     return removed
 
 

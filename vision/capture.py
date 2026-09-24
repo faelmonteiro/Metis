@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 """
 Módulo de Captura e Otimização de Imagem para Wayland / Hyprland e X11.
 Realiza capturas ultrarrápidas em memória e otimiza para envio a modelos de visão.
@@ -27,8 +29,8 @@ def get_active_window_geometry() -> Optional[str]:
             size = data.get("size")
             if at and size and len(at) == 2 and len(size) == 2:
                 return f"{at[0]},{at[1]} {size[0]}x{size[1]}"
-    except Exception:
-        pass
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
     return None
 
 def capture_screen(mode: str = "fullscreen") -> bytes:

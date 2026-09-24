@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 import json
 import os
 import shutil
@@ -23,8 +25,8 @@ def salvar_estado_chat(estado: dict):
         state_file = Path(config.HISTORICO_DIR) / ".last_chat_state.json"
         with open(state_file, "w", encoding="utf-8") as f:
             json.dump(estado, f)
-    except Exception:
-        pass
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
 
 def carregar_estado_chat() -> dict:

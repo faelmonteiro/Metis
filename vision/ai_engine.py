@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 """
 Motor de Inteligência Artificial para Análise Visual.
 Suporta múltiplos provedores (NVIDIA NIM, Google Gemini, OpenRouter e Ollama) com streaming em tempo real.
@@ -152,8 +154,8 @@ class VisionAIEngine:
                                     content = data.get("message", {}).get("content", "")
                                     if content:
                                         yield content
-                                except Exception:
-                                    pass
+                                except Exception as _silent_e:
+                                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
                 return
             except Exception as e:
                 yield f"⚠️ Erro ao conectar ao Ollama: {str(e)}"
@@ -360,8 +362,8 @@ class VisionAIEngine:
                                     content = data.get("message", {}).get("content", "")
                                     if content:
                                         yield content
-                                except Exception:
-                                    pass
+                                except Exception as _silent_e:
+                                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
             except Exception as e:
                 yield f"⚠️ Erro ao conectar ao Ollama: {str(e)}"
         else:
@@ -533,8 +535,8 @@ class VisionAIEngine:
                                 content = msg.get("content", "")
                                 if content:
                                     yield content
-                            except Exception:
-                                pass
+                            except Exception as _silent_e:
+                                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
         except Exception as e:
             yield f"⚠️ Erro ao conectar ao Ollama: {str(e)}"
 

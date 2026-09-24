@@ -21,8 +21,8 @@ class BaseService(ABC):
         if hasattr(self, "_active_stream") and self._active_stream is not None:
             try:
                 self._active_stream.close()
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
             self._active_stream = None
 
     @abstractmethod

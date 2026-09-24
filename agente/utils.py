@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 import atexit
 import os
 import re
@@ -127,8 +129,8 @@ def bloquear_teclado():
         attr[3] = attr[3] & ~termios.ECHO
         termios.tcsetattr(fd, termios.TCSADRAIN, attr)
         atexit.register(desbloquear_teclado)
-    except Exception:
-        pass
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
 
 def desbloquear_teclado():
@@ -141,8 +143,8 @@ def desbloquear_teclado():
         attr[3] = attr[3] | termios.ECHO
         termios.tcsetattr(fd, termios.TCSADRAIN, attr)
         termios.tcflush(sys.stdin, termios.TCIFLUSH)
-    except Exception:
-        pass
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
 
 def hyprctl(command: str):
@@ -154,8 +156,8 @@ def hyprctl(command: str):
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-        except FileNotFoundError:
-            pass
+        except FileNotFoundError as _silent_e:
+            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
 
 def mover_janela_canto_superior_direito(fallback_w: int = 860, fallback_h: int = 550) -> tuple[int, int]:
@@ -209,8 +211,8 @@ def mover_janela_canto_superior_direito(fallback_w: int = 860, fallback_h: int =
                     else:
                         hyprctl(f"dispatch moveactive exact {target_x} {target_y}")
                     return target_x, target_y
-        except Exception:
-            pass
+        except Exception as _silent_e:
+            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
     return (max(10, 1920 - fallback_w - 10), 56)
 
 def _register_enhanced_terminal_sequences():
@@ -257,8 +259,8 @@ def _register_enhanced_terminal_sequences():
                 ANSI_SEQUENCES[f"\x1b[{k};{mod}~"] = target_key
 
         _IS_PREFIX_OF_LONGER_MATCH_CACHE.clear()
-    except Exception:
-        pass
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
 _register_enhanced_terminal_sequences()
 
@@ -291,8 +293,8 @@ def _apply_word_wrap(buffer, prompt_len: int = 3) -> None:
                     new_text = full_text[:global_space_idx] + '\n' + full_text[global_space_idx + 1:]
                     from prompt_toolkit.document import Document
                     buffer.set_document(Document(new_text, buffer.cursor_position), bypass_readonly=True)
-    except Exception:
-        pass
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
 
 def safe_input(prompt_text: str, multiline: bool = True) -> str:
@@ -402,8 +404,8 @@ def configurar_api_key(chave_nome: str) -> bool:
     env_path = config.PROJECT_ROOT / ".env"
     try:
         os.chmod(env_path, 0o600)
-    except Exception:
-        pass
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
     setattr(config, chave_nome, nova_chave)
     print(f"{GREEN}Chave salva com sucesso no arquivo .env!{RESET}")

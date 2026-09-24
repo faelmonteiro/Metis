@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import logging
+logger = logging.getLogger(__name__)
 """
 CLI para gerenciar modelos do Metis via terminal (substitui manage_models.py legacy).
 """
@@ -454,8 +456,8 @@ def main():
             try:
                 content = CONFIG_FILE.read_text(encoding="utf-8")
                 metis_repo_config.write_text(content, encoding="utf-8")
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
         # 5. Exibe resumo amigável ao usuário
         prov_display = clean_provider.upper() if clean_provider in ("nvidia", "g4f") else clean_provider.title()

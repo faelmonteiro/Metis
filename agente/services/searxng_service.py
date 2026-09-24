@@ -260,10 +260,10 @@ def buscar_web(pergunta: str) -> str:
                             c = f.result()
                             if c:
                                 conteudos_paginas[idx] = c
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
+                        except Exception as _silent_e:
+                            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+                except Exception as _silent_e:
+                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
     partes = []
     for idx, r in enumerate(resultados, 1):

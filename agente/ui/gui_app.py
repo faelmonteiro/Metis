@@ -138,8 +138,8 @@ class AIWorker(QThread):
         if hasattr(self.service, "abort"):
             try:
                 self.service.abort()
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
     def run(self):
         from agente.services.tool_executor import register_tool_listener, unregister_tool_listener
@@ -290,8 +290,8 @@ class AIWorker(QThread):
             try:
                 self.hm.adicionar_mensagem("user", self.pergunta, media_paths=self.media_paths if self.media_paths else None)
                 self.hm.adicionar_mensagem("assistant", msg_erro_hist)
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
             self.error_occurred.emit(str(e))
         finally:
             unregister_tool_listener(on_tool_event)
@@ -1306,8 +1306,8 @@ class ModernAddModelDialog(QDialog):
         alpha = max(0.4, min(1.0, op / 100.0))
         try:
             self.setWindowOpacity(alpha)
-        except Exception:
-            pass
+        except Exception as _silent_e:
+            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
         self.init_ui()
 
@@ -1318,8 +1318,8 @@ class ModernAddModelDialog(QDialog):
                 x = geo.x() + (geo.width() - 480) // 2
                 y = geo.y() + (geo.height() - 205) // 2
                 self.move(max(20, x), max(20, y))
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
     def init_ui(self):
         c = get_current_theme_colors()
@@ -2404,15 +2404,15 @@ def copiar_para_area_de_transferencia(texto: str) -> bool:
             app_clip.setText(texto, QClipboard.Mode.Clipboard)
             app_clip.setText(texto, QClipboard.Mode.Selection)
             sucesso = True
-    except Exception:
-        pass
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
     try:
         from agente.ui.clipboard import _copiar_clipboard
         if _copiar_clipboard(texto):
             sucesso = True
-    except Exception:
-        pass
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
     return sucesso
 
@@ -2866,8 +2866,8 @@ class MetisMainWindow(QMainWindow):
         alpha = max(0.4, min(1.0, opacity_val / 100.0))
         try:
             self.setWindowOpacity(alpha)
-        except Exception:
-            pass
+        except Exception as _silent_e:
+            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
         # Sincronização nativa direta com o Hyprland
         if shutil.which("hyprctl"):
@@ -2882,8 +2882,8 @@ class MetisMainWindow(QMainWindow):
                                 hyprctl(f"setprop address:{addr} alpha {alpha:.2f} lock")
                                 hyprctl(f"setprop address:{addr} activealpha {alpha:.2f} lock")
                                 hyprctl(f"setprop address:{addr} inactivealpha {max(0.4, alpha - 0.08):.2f} lock")
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
     def apply_theme(self):
         self.setStyleSheet(build_dynamic_qss())
@@ -2948,8 +2948,8 @@ class MetisMainWindow(QMainWindow):
                 hyprctl("dispatch setfloating")
                 hyprctl(f"dispatch resizewindowpixel exact {w_target} {h_target}")
                 hyprctl("dispatch centerwindow")
-        except Exception:
-            pass
+        except Exception as _silent_e:
+            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
     def toggle_or_focus(self):
         """Alterna a visibilidade ou foca a janela se uma segunda instância for chamada (ex: Super + R)."""
@@ -2971,8 +2971,8 @@ class MetisMainWindow(QMainWindow):
                         if "METIS" in c.get("title", "") or "Metis" in c.get("title", ""):
                             addr_metis = c.get("address", "")
                             break
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
         # Se já estiver visível e ativa (usuário apertou Super+R na janela atual), oculta a janela
         if (self.isVisible() and self.isActiveWindow()) or is_active_hypr:
@@ -3081,8 +3081,8 @@ class MetisMainWindow(QMainWindow):
                     target_x = max(geo.left() + 10, geo.left() + geo.width() - self.width() - 10)
                     target_y = max(geo.top() + 14, geo.top() + 14)
                 self.move(target_x, target_y)
-        except Exception:
-            pass
+        except Exception as _silent_e:
+            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
     # -------------------------------------------------------------------------
     # UI: Dashboard Principal
@@ -5654,8 +5654,8 @@ class MetisMainWindow(QMainWindow):
                 try:
                     u_bubble._queue_badge.deleteLater()
                     u_bubble._queue_badge = None
-                except Exception:
-                    pass
+                except Exception as _silent_e:
+                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
             self.current_attachment_path = next_item.get("attachment_path")
             self.current_media_paths = next_item.get("media_paths", [])
             self.current_attachment_text_context = next_item.get("attachment_context", "")
@@ -5673,24 +5673,24 @@ class MetisMainWindow(QMainWindow):
         if worker and worker.isRunning():
             try:
                 worker.chunk_received.disconnect()
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
             try:
                 worker.finished_response.disconnect()
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
             try:
                 worker.error_occurred.disconnect()
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
             try:
                 worker.tool_started.disconnect()
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
             try:
                 worker.tool_finished.disconnect()
-            except Exception:
-                pass
+            except Exception as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
             worker.cancel()
             self.btn_stop.setVisible(False)
@@ -5699,13 +5699,13 @@ class MetisMainWindow(QMainWindow):
             if hasattr(self, "_current_timer_live") and self._current_timer_live:
                 try:
                     self._current_timer_live.stop()
-                except Exception:
-                    pass
+                except Exception as _silent_e:
+                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
             if hasattr(self, "_current_render_timer") and self._current_render_timer:
                 try:
                     self._current_render_timer.stop()
-                except Exception:
-                    pass
+                except Exception as _silent_e:
+                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
             # 2. Atualiza o balão de resposta instantaneamente no mesmo milissegundo
             if hasattr(self, "_current_lbl_text") and self._current_lbl_text:
@@ -5718,8 +5718,8 @@ class MetisMainWindow(QMainWindow):
                     elif "[Geração interrompida" not in current_txt:
                         current_txt += "\n\n[Geração interrompida pelo usuário]"
                     self._set_bubble_content(self._current_lbl_text, current_txt)
-                except Exception:
-                    pass
+                except Exception as _silent_e:
+                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
             # 3. Atualiza o badge do tempo para parado
             if hasattr(self, "_current_ai_bubble") and self._current_ai_bubble:
@@ -5729,8 +5729,8 @@ class MetisMainWindow(QMainWindow):
                             elapsed = time.monotonic() - self._current_start_time
                             self._current_ai_bubble._lbl_timer.setText(f"⏹️ {elapsed:.1f}s")
                             self._current_ai_bubble._lbl_timer.setStyleSheet("color: #ef4444; background: transparent; font-size: 8pt;")
-                except Exception:
-                    pass
+                except Exception as _silent_e:
+                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
             self.scroll_chat_to_bottom()
 
@@ -5978,8 +5978,8 @@ class MetisMainWindow(QMainWindow):
                         btn_copy.setText("✓")
                         btn_copy.setToolTip("Copiado!")
                         QTimer.singleShot(2000, lambda: (btn_copy.setText("❐"), btn_copy.setToolTip("Copiar resposta")))
-                except Exception:
-                    pass
+                except Exception as _silent_e:
+                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
             btn_copy.clicked.connect(copy_text)
             actions_row.addWidget(btn_copy)
 
@@ -6085,8 +6085,8 @@ class MetisMainWindow(QMainWindow):
         self.rebuild_oracle_buttons()
         try:
             self.carregar_servico_padrao()
-        except Exception:
-            pass
+        except Exception as _silent_e:
+            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
         QMessageBox.information(self, "Metis", "Chaves de API atualizadas e salvas com sucesso no .env!")
 
     def show_agent_options_dialog(self):

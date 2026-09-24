@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 """
 Gerenciamento de preferências do usuário e variáveis de ambiente.
 """
@@ -127,8 +129,8 @@ def _save_env_file(env_vars: Dict[str, str]) -> None:
         except Exception:
             try:
                 os.unlink(tmp)
-            except OSError:
-                pass
+            except OSError as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
             raise
 
 
@@ -230,8 +232,8 @@ def save_provider_state(provider: str, model: str = "") -> None:
             d.mkdir(parents=True, exist_ok=True)
             (d / ".fix_ia_selected").write_text(f"{label}\n", encoding="utf-8")
             (d / ".last_provider").write_text(f"{num}\n", encoding="utf-8")
-        except Exception:
-            pass
+        except Exception as _silent_e:
+            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
     # 2. Salva variável DEFAULT_PROVIDER e modelo no .env canônico
     env_vars = _load_env_file()

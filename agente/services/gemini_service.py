@@ -139,8 +139,8 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
                                     yield text
                             elif "functionCall" in part:
                                 function_calls_detected.append(part["functionCall"])
-                    except (json.JSONDecodeError, KeyError, IndexError):
-                        pass
+                    except (json.JSONDecodeError, KeyError, IndexError) as _silent_e:
+                        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
     except httpx.RequestError as e:
         raise RuntimeError(f"Erro de conexão com Gemini API: {e}")
 

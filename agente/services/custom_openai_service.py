@@ -88,8 +88,8 @@ class CustomOpenAIService(BaseService):
             if OPENAI_TOOLS_DECLARATION and not is_nvidia:
                 payload["tools"] = OPENAI_TOOLS_DECLARATION
                 payload["tool_choice"] = "auto"
-        except Exception:
-            pass
+        except Exception as _silent_e:
+            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
         return headers, payload
 
@@ -137,8 +137,8 @@ class CustomOpenAIService(BaseService):
                                     payload.pop("tools", None)
                                     payload.pop("tool_choice", None)
                                     continue
-                            except Exception:
-                                pass
+                            except Exception as _silent_e:
+                                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
                         self._handle_error(res)
 
                         yield from parse_openai_sse_stream(res.iter_lines(), tool_calls_map)

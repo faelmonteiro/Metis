@@ -1,3 +1,5 @@
+import logging
+logger = logging.getLogger(__name__)
 import os
 import re
 import json
@@ -80,15 +82,15 @@ def _resolver_caminho_amigavel(caminho_str: str) -> str:
         for item in Path.home().iterdir():
             if unaccent(item.name) == c_un:
                 return str(item)
-    except Exception:
-        pass
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
     try:
         for item in Path.cwd().iterdir():
             if unaccent(item.name) == c_un:
                 return str(item)
-    except Exception:
-        pass
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
     # 4. Fallback para nomes e apelidos comuns de pastas
     termo_lower = c_str.lower()
@@ -277,8 +279,8 @@ def gerar_pdf(caminho_destino: str, texto: str) -> str:
                     pdf.set_font("DejaVu", size=12)
                     fonte_carregada = True
                     break
-                except Exception:
-                    pass
+                except Exception as _silent_e:
+                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
         if not fonte_carregada:
             pdf.set_font("Helvetica", size=12)
