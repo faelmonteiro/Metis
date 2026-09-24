@@ -114,6 +114,11 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
                                 espera = max(espera, float(m.group(1)) + 1.0)
                         except Exception as _silent_e:
                             logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+                            # Corpo não consumido: descarta a conexão em vez de devolvê-la ao pool.
+                            try:
+                                res.close()
+                            except Exception:
+                                pass
                         try:
                             ra_raw = res.headers.get("Retry-After", "").strip()
                             if ra_raw.isdigit() and float(ra_raw) > 90.0:

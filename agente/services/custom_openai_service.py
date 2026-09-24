@@ -5,6 +5,7 @@ com suporte completo a streaming, ferramentas (tool calling), visão/mídia e tr
 import json
 import logging
 import os
+import re
 from typing import Iterator
 
 import httpx
@@ -150,11 +151,19 @@ class CustomOpenAIService(BaseService):
                     self._active_stream = res
                     try:
                         if res.status_code == 429 and attempt < retries - 1:
+                            espera = calcular_espera_retry_after(res, padrao=3.0)
                             try:
-                                res.read()
+                                corpo = res.read().decode("utf-8")
+                                m = re.search(r"try again in ([\d\.]+)s", corpo)
+                                if m:
+                                    espera = max(espera, float(m.group(1)) + 1.0)
                             except Exception as _silent_e:
                                 logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
-                            espera = calcular_espera_retry_after(res, padrao=3.0)
+                                # Corpo não consumido: descarta a conexão em vez de devolvê-la ao pool.
+                                try:
+                                    res.close()
+                                except Exception:
+                                    pass
                             try:
                                 ra_raw = res.headers.get("Retry-After", "").strip()
                                 if ra_raw.isdigit() and float(ra_raw) > 90.0:

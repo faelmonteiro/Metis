@@ -8,6 +8,7 @@ from agente.services.base import (
     BaseService,
     NonRetriableAPIError,
     RetriableAPIError,
+    calcular_espera_retry_after,
     parse_openai_sse_stream,
 )
 
@@ -75,30 +76,66 @@ def _handle_error(res):
 
 
 def gerar_resposta_stream(mensagens: list, model: str = None, service=None):
-    """Gera resposta via streaming SSE da NVIDIA API (formato OpenAI)."""
+    """Gera resposta via streaming SSE da NVIDIA API (formato OpenAI), com retry."""
     model_name = model or config.NVIDIA_MODEL
     headers, payload = _build_request(mensagens, stream=True, model=model_name)
 
     timeout = httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)
 
-    try:
-        from agente.services.http_client import get_http_client
-        client = get_http_client()
-        with client.stream("POST", API_URL, headers=headers, json=payload, timeout=timeout) as res:
-            if service:
-                service._active_stream = res
-            try:
-                _handle_error(res)
+    from agente.services.http_client import get_http_client
+    import time
+    retries = 5
+    tentativas_deadline = time.monotonic() + 90.0
 
-                tool_calls_map = {}
-                yield from parse_openai_sse_stream(res.iter_lines(), tool_calls_map)
-            finally:
-                if service:
-                    service._active_stream = None
-    except httpx.RequestError as e:
+    def _espera_retry(espera: float, motivo: str, attempt: int) -> None:
+        restante = tentativas_deadline - time.monotonic()
+        if espera >= restante:
+            espera = max(restante, 0.0)
+        if espera > 0:
+            logger.info("NVIDIA: %s (tentativa %d/%d) — aguardando %.1fs", motivo, attempt + 1, retries, espera)
+            time.sleep(espera)
+        else:
+            logger.debug("NVIDIA: teto de 90s de retentativas atingido")
+            raise RuntimeError("NVIDIA: teto de 90s de retentativas atingido")
+
+    for attempt in range(retries):
         if service and getattr(service, "_aborted", False):
             return
-        raise RuntimeError(f"Erro de conexão com NVIDIA API: {e}")
+        try:
+            client = get_http_client()
+            with client.stream("POST", API_URL, headers=headers, json=payload, timeout=timeout) as res:
+                if service:
+                    service._active_stream = res
+                try:
+                    if res.status_code == 429 and attempt < retries - 1:
+                        espera = calcular_espera_retry_after(res, padrao=3.0)
+                        try:
+                            res.read()
+                        except Exception as _silent_e:
+                            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+                            # Corpo não consumido: descarta a conexão em vez de devolvê-la ao pool.
+                            try:
+                                res.close()
+                            except Exception:
+                                pass
+                        _espera_retry(espera, "rate-limit (429)", attempt)
+                        continue
+                    _handle_error(res)
+
+                    tool_calls_map = {}
+                    yield from parse_openai_sse_stream(res.iter_lines(), tool_calls_map)
+                finally:
+                    if service:
+                        service._active_stream = None
+            break
+        except (httpx.RequestError, RetriableAPIError) as e:
+            if service and getattr(service, "_aborted", False):
+                return
+            if attempt == retries - 1:
+                if isinstance(e, RetriableAPIError):
+                    raise
+                raise RuntimeError(f"Erro de conexão com NVIDIA API: {e}")
+            _espera_retry(1.5, "falha de conexão/retry", attempt)
 
 class NvidiaService(BaseService):
     def __init__(self, model: str = None):

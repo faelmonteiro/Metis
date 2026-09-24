@@ -60,6 +60,7 @@ def gerar_resposta(mensagens: list, model: str = None) -> str:
 
 class G4FService(BaseService):
     def __init__(self, model: str = None):
+        super().__init__()
         self.model = model or getattr(config, "G4F_MODEL", "gpt-4o-mini") or "gpt-4o-mini"
 
     @property
@@ -67,5 +68,11 @@ class G4FService(BaseService):
         return f"G4F ({self.model})"
 
     def gerar_resposta_stream(self, mensagens: list):
-        # G4F currently doesn't stream well, so we yield the full response
-        yield gerar_resposta(mensagens, self.model)
+        # G4F currently doesn't stream well, so we yield the full response.
+        # As chamadas são síncronas e não interrompíveis no meio; se o usuário
+        # abortar durante a geração, o resultado completo é descartado.
+        self._aborted = False
+        texto = gerar_resposta(mensagens, self.model)
+        if self._aborted:
+            return
+        yield texto
