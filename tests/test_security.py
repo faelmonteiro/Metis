@@ -2,6 +2,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from agente.utils import caminho_leitura_seguro
 from agente.services.tools_defs import validar_comando_seguro
 
@@ -147,6 +149,7 @@ class TestSecurity(unittest.TestCase):
         ok, _ = validar_comando_seguro("bash -c 'rm -rf /tmp/y'")
         self.assertFalse(ok)
 
+    @pytest.mark.command_tool
     def test_diagnostico_sem_operador_roda_automatico(self):
         import io
         import sys
@@ -166,6 +169,7 @@ class TestSecurity(unittest.TestCase):
         finally:
             sys.stdin = stdin_original
 
+    @pytest.mark.command_tool
     def test_diagnostico_com_operador_exige_confirmacao(self):
         import io
         import sys
