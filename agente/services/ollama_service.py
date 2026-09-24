@@ -253,42 +253,51 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
                 for line in res.iter_lines():
                     if service and getattr(service, "_aborted", False):
                         break
-                if line:
+                    if not line:
+                        continue
                     try:
                         data = json.loads(line)
-                        msg = data.get("message", {})
-
-                        if "content" in msg and msg["content"]:
-                            content_chunk = msg["content"]
-                            if is_action:
-                                # Em modo AÇÃO: emite direto
-                                yield content_chunk
-                            else:
-                                # Em modo CONSULTA: acumula para sanitizar vazamento de JSON de tools
-                                buffered_text.append(content_chunk)
-                                # Emite texto acumulado que não pareça início de JSON
-                                texto_acumulado = "".join(buffered_text)
-                                if "```json" not in texto_acumulado and '{"name":' not in texto_acumulado:
-                                    # Seguro emitir chunks liberados
-                                    while len(buffered_text) > 1:
-                                        yield buffered_text.pop(0)
-
-                        if "tool_calls" in msg and msg["tool_calls"]:
-                            for tool_call in msg["tool_calls"]:
-                                if "function" in tool_call:
-                                    function_calls_detected.append({
-                                        "name": tool_call["function"]["name"],
-                                        "args": tool_call["function"].get("arguments", {})
-                                    })
                     except json.JSONDecodeError:
-                        pass
+                        continue
+
+                    if data.get("error"):
+                        raise RuntimeError(f"Erro do Ollama: {data['error']}")
+
+                    msg = data.get("message", {})
+
+                    if "content" in msg and msg["content"]:
+                        content_chunk = msg["content"]
+                        if is_action:
+                            # Em modo AÇÃO: emite direto
+                            yield content_chunk
+                        else:
+                            # Em modo CONSULTA: acumula para sanitizar vazamento de JSON de tools
+                            buffered_text.append(content_chunk)
+                            # Emite texto acumulado que não pareça início de JSON
+                            texto_acumulado = "".join(buffered_text)
+                            if "```json" not in texto_acumulado and '{"name":' not in texto_acumulado:
+                                # Seguro emitir chunks liberados
+                                while len(buffered_text) > 1:
+                                    yield buffered_text.pop(0)
+
+                    if "tool_calls" in msg and msg["tool_calls"]:
+                        for tool_call in msg["tool_calls"]:
+                            if "function" in tool_call:
+                                function_calls_detected.append({
+                                    "name": tool_call["function"]["name"],
+                                    "args": tool_call["function"].get("arguments", {})
+                                })
             finally:
                 if service:
                     service._active_stream = None
+                res.close()
     except (httpx.RequestError, Exception) as e:
         if service and getattr(service, "_aborted", False):
             return
         raise RuntimeError(f"Não foi possível conectar ao Ollama: {e}")
+
+    if service and getattr(service, "_aborted", False):
+        return
 
     # Flush final do buffer em modo CONSULTA (com sanitização)
     if buffered_text:
