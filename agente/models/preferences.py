@@ -2,12 +2,16 @@
 Gerenciamento de preferências do usuário e variáveis de ambiente.
 """
 import os
+import threading
 from pathlib import Path
 from typing import Any, Optional, Dict
 from .storage import load_config, save_config, CONFIG_DIR
 
 
 ENV_FILE = CONFIG_DIR / ".env"
+
+# Serializa leitura-modificação-escrita do .env entre threads.
+_env_lock = threading.RLock()
 
 
 def get_preference(key: str, default: Any = None) -> Any:
@@ -97,13 +101,14 @@ def restore_server(server_id: str) -> None:
 
 def _load_env_file() -> Dict[str, str]:
     """Carrega .env como dict."""
-    env_vars = {}
-    if ENV_FILE.exists():
-        for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                k, v = line.split("=", 1)
-                env_vars[k.strip()] = v.strip()
+    with _env_lock:
+        env_vars = {}
+        if ENV_FILE.exists():
+            for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    env_vars[k.strip()] = v.strip()
     return env_vars
 
 
@@ -113,17 +118,18 @@ def _save_env_file(env_vars: Dict[str, str]) -> None:
     lines = [f"{k}={v}" for k, v in sorted(env_vars.items())]
     content = "\n".join(lines) + "\n"
 
-    fd, tmp = tempfile.mkstemp(suffix=".tmp", dir=str(CONFIG_DIR))
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(content)
-        os.replace(tmp, str(ENV_FILE))
-    except Exception:
+    with _env_lock:
+        fd, tmp = tempfile.mkstemp(suffix=".tmp", dir=str(ENV_FILE.parent))
         try:
-            os.unlink(tmp)
-        except OSError:
-            pass
-        raise
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(content)
+            os.replace(tmp, str(ENV_FILE))
+        except Exception:
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+            raise
 
 
 def get_env_var(key: str, default: str = "") -> str:
@@ -235,23 +241,21 @@ def save_provider_state(provider: str, model: str = "") -> None:
     _save_env_file(env_vars)
 
     # 3. Atualiza preferences em config_models.json
-    try:
-        config = load_config()
-        if "preferences" not in config:
-            config["preferences"] = {}
-        config["preferences"]["last_active_provider"] = default_prov
-        if model:
-            config["preferences"]["last_active_model"] = model
-            if "active_models" not in config["preferences"]:
-                config["preferences"]["active_models"] = {}
-            config["preferences"]["active_models"][clean_key] = model
-            config["preferences"]["active_models"]["default_provider"] = clean_key
-        config["active_provider"] = clean_key
-        if model:
-            config["active_model"] = model
-        save_config(config)
-    except Exception:
-        pass
+    #    Não engole exceções: falha de persistência deve propagar ao chamador.
+    config = load_config()
+    if "preferences" not in config:
+        config["preferences"] = {}
+    config["preferences"]["last_active_provider"] = default_prov
+    if model:
+        config["preferences"]["last_active_model"] = model
+        if "active_models" not in config["preferences"]:
+            config["preferences"]["active_models"] = {}
+        config["preferences"]["active_models"][clean_key] = model
+        config["preferences"]["active_models"]["default_provider"] = clean_key
+    config["active_provider"] = clean_key
+    if model:
+        config["active_model"] = model
+    save_config(config)
 
     # 4. Atualiza os.environ para a sessão atual
     os.environ["DEFAULT_PROVIDER"] = default_prov

@@ -2,15 +2,25 @@
 Armazenamento atômico para config_models.json.
 Single source of truth: ~/.config/metis/config_models.json
 """
+import copy as _copy
 import json
+import logging
 import os
 import tempfile
+import threading
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional, Tuple
 
+
+logger = logging.getLogger(__name__)
 
 CONFIG_DIR = Path(os.getenv("METIS_CONFIG_DIR", Path.home() / ".config" / "metis"))
 CONFIG_FILE = CONFIG_DIR / "config_models.json"
+
+# Serializa leitura-modificação-escrita do config_models.json entre threads.
+_config_lock = threading.RLock()
+# Cache de leitura, invalidado por mtime do arquivo (evita re-parses em cada request).
+_config_cache: Optional[Tuple[Optional[int], Dict[str, Any]]] = None
 
 
 def _legacy_config_paths() -> List[Path]:
@@ -113,33 +123,50 @@ def _ensure_config_dir() -> None:
 def load_config(force_reload: bool = False) -> Dict[str, Any]:
     """
     Carrega configuração do arquivo canônico.
-    Retorna config padrão se arquivo não existir ou estiver corrompido.
+
+    Faz cache do resultado e invalida por mtime: chamadas repetidas entre
+    escritas não re-leem/parseiam o arquivo. Use `force_reload=True` para
+    ignorar o cache. Retorna config padrão se o arquivo não existir;
+    se estiver corrompido, registra um warning (em vez de falhar em silêncio).
     """
     _ensure_config_dir()
 
-    if not CONFIG_FILE.exists():
-        return dict(DEFAULT_CONFIG)
+    global _config_cache
+    with _config_lock:
+        if not CONFIG_FILE.exists():
+            _config_cache = None
+            return dict(DEFAULT_CONFIG)
 
-    try:
-        content = CONFIG_FILE.read_text(encoding="utf-8")
-        data = json.loads(content)
+        try:
+            mtime = CONFIG_FILE.stat().st_mtime_ns
+        except OSError:
+            mtime = None
 
-        # Migra schema v1 -> v2 se necessário
-        if data.get("schema_version", 1) < 2:
-            data = _migrate_v1_to_v2(data)
+        if not force_reload and _config_cache is not None and _config_cache[0] == mtime:
+            return _copy.deepcopy(_config_cache[1])
 
-        # Garante todas as chaves padrão
-        return _merge_with_defaults(data)
+        try:
+            content = CONFIG_FILE.read_text(encoding="utf-8")
+            data = json.loads(content)
 
-    except (json.JSONDecodeError, OSError):
-        # Arquivo corrompido - retorna default
-        return dict(DEFAULT_CONFIG)
+            # Migra schema v1 -> v2 se necessário
+            if data.get("schema_version", 1) < 2:
+                data = _migrate_v1_to_v2(data)
+
+            result = _merge_with_defaults(data)
+        except (json.JSONDecodeError, OSError) as exc:
+            logger.warning("config_models.json ilegível (%s); usando defaults", exc)
+            return dict(DEFAULT_CONFIG)
+
+        _config_cache = (mtime, result)
+        return _copy.deepcopy(result)
 
 
 def save_config(data: Dict[str, Any]) -> None:
     """
     Salva configuração com escrita atômica (tempfile + os.replace).
-    Thread-safe e resistente a falhas de energia.
+    Thread-safe (lock de escrita) e resistente a falhas de energia.
+    Exceções de I/O NÃO são engolidas: propagam para o chamador.
     """
     _ensure_config_dir()
 
@@ -148,17 +175,25 @@ def save_config(data: Dict[str, Any]) -> None:
 
     content = json.dumps(data, indent=2, ensure_ascii=False, sort_keys=False)
 
-    fd, tmp_path = tempfile.mkstemp(suffix=".tmp", dir=str(CONFIG_DIR))
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            f.write(content)
-        os.replace(tmp_path, str(CONFIG_FILE))
-    except Exception:
+    with _config_lock:
+        fd, tmp_path = tempfile.mkstemp(suffix=".tmp", dir=str(CONFIG_DIR))
         try:
-            os.unlink(tmp_path)
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(content)
+            os.replace(tmp_path, str(CONFIG_FILE))
+        except Exception:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
+
+    global _config_cache
+    with _config_lock:
+        try:
+            _config_cache = (CONFIG_FILE.stat().st_mtime_ns, _copy.deepcopy(data))
         except OSError:
-            pass
-        raise
+            _config_cache = None
 
 
 def _migrate_v1_to_v2(data: Dict[str, Any]) -> Dict[str, Any]:
