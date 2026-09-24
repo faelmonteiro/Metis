@@ -4,7 +4,7 @@ import logging
 import httpx
 
 from agente import config
-from agente.services.base import BaseService
+from agente.services.base import BaseService, parse_openai_sse_stream
 
 logger = logging.getLogger(__name__)
 
@@ -21,15 +21,11 @@ def _build_request(mensagens: list, stream: bool = False, model: str = None) -> 
         "Content-Type": "application/json"
     }
 
-    # Formata mensagens para garantir compatibilidade com formato OpenAI
-    # Nota: NVIDIA API não suporta tool calling — mensagens de ferramenta são descartadas
-    clean_messages = []
-    for m in mensagens:
-        role = m.get("role", "user")
-        if role in ["system", "user", "assistant"]:
-            clean_messages.append({"role": role, "content": str(m.get("content", ""))})
-        elif role in ["functionCall", "functionResponse"]:
-            logger.warning(f"NVIDIA API não suporta tool calling — mensagem '{role}' descartada")
+    from agente.services.base import format_openai_messages
+
+    # NVIDIA API não suporta tool calling — mensagens de ferramenta são descartadas
+    # e a mídia não é enviada (formato de texto puro, como antes).
+    clean_messages = format_openai_messages(mensagens, descartar_tools=True, incluir_midia=False)
 
     payload = {
         "model": model or getattr(config, "NVIDIA_MODEL", "moonshotai/kimi-k3"),
@@ -69,20 +65,8 @@ def gerar_resposta_stream(mensagens: list, model: str = None, service=None):
             try:
                 _handle_error(res)
 
-                for line in res.iter_lines():
-                    if service and getattr(service, "_aborted", False):
-                        break
-                    if not line.startswith("data: "):
-                        continue
-                    if line.strip() == "data: [DONE]":
-                        break
-                    try:
-                        data = json.loads(line[6:])
-                        content = data["choices"][0]["delta"].get("content", "")
-                        if content:
-                            yield content
-                    except (json.JSONDecodeError, KeyError, IndexError):
-                        pass
+                tool_calls_map = {}
+                yield from parse_openai_sse_stream(res.iter_lines(), tool_calls_map)
             finally:
                 if service:
                     service._active_stream = None

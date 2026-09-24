@@ -1,13 +1,10 @@
 import json
-import logging
 import re
 
 import httpx
 
 from agente import config
 from agente.services.base import BaseService, RetriableAPIError
-
-logger = logging.getLogger(__name__)
 
 API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
@@ -21,84 +18,10 @@ def _build_request(mensagens: list, stream: bool = False, model: str = None) -> 
         "Content-Type": "application/json"
     }
 
+    from agente.services.base import format_openai_messages
     from agente.services.tools_defs import OPENAI_TOOLS_DECLARATION
-    import base64
-    import mimetypes
 
-    formatted_messages = []
-    
-    for m in mensagens:
-        role_raw = m.get("role", "")
-
-        if role_raw == "system":
-            formatted_messages.append({"role": "system", "content": m.get("content", "")})
-            continue
-
-        if role_raw == "functionCall":
-            args_data = m["functionCall"].get("args", {})
-            args_str = json.dumps(args_data) if isinstance(args_data, dict) else str(args_data)
-            tc_obj = {
-                "id": m["functionCall"].get("id", "call_123"),
-                "type": "function",
-                "function": {
-                    "name": m["functionCall"]["name"],
-                    "arguments": args_str
-                }
-            }
-            if formatted_messages and formatted_messages[-1].get("role") == "assistant" and "tool_calls" in formatted_messages[-1]:
-                formatted_messages[-1]["tool_calls"].append(tc_obj)
-            else:
-                formatted_messages.append({
-                    "role": "assistant",
-                    "content": None,
-                    "tool_calls": [tc_obj]
-                })
-            continue
-            
-        if role_raw == "functionResponse":
-            formatted_messages.append({
-                "role": "tool",
-                "tool_call_id": m.get("id", "call_123"),
-                "name": m["name"],
-                "content": str(m["content"])
-            })
-            continue
-
-        role = "user" if role_raw == "user" else "assistant"
-        
-        content = []
-        text_content = str(m.get("content", ""))
-        if text_content:
-            content.append({"type": "text", "text": text_content})
-            
-        if "media_paths" in m:
-            for path in m["media_paths"]:
-                try:
-                    from agente.services.media_cache import get_base64_media
-                    data = get_base64_media(path)
-                    mime, _ = mimetypes.guess_type(path)
-                    if not mime:
-                        mime = "application/octet-stream"
-                    content.append({
-                        "type": "image_url",
-                        "image_url": {
-                            "url": f"data:{mime};base64,{data}"
-                        }
-                    })
-                except Exception as e:
-                    logger.error(f"Falha ao ler midia {path}: {e}")
-
-        if len(content) == 1 and content[0]["type"] == "text":
-            final_content = content[0]["text"]
-        elif not content:
-            continue
-        else:
-            final_content = content
-
-        formatted_messages.append({
-            "role": role,
-            "content": final_content
-        })
+    formatted_messages = format_openai_messages(mensagens)
 
     payload = {
         "model": model or config.GROQ_MODEL,
