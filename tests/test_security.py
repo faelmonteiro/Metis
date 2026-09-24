@@ -1,11 +1,17 @@
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from agente.utils import caminho_leitura_seguro
 from agente.services.tools_defs import validar_comando_seguro
 
 
 class TestSecurity(unittest.TestCase):
+    def setUp(self):
+        env_p = patch("agente.config.ENABLE_COMMAND_TOOL", True)
+        env_p.start()
+        self.addCleanup(env_p.stop)
+
     def test_bloqueia_sudo(self):
         ok, _ = validar_comando_seguro("sudo ls")
         self.assertFalse(ok)

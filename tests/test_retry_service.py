@@ -34,6 +34,11 @@ class _StubClient:
 
 class TestGroqRetry(unittest.TestCase):
 
+    def setUp(self):
+        env_p = patch("agente.config.GROQ_API_KEY", "groq-chave-de-teste")
+        env_p.start()
+        self.addCleanup(env_p.stop)
+
     def test_401_falha_imediato_sem_retry(self):
         with patch("agente.services.http_client.get_http_client",
                    return_value=_StubClient([_mock_response(401)])):

@@ -1,4 +1,6 @@
 import unittest
+from unittest.mock import patch
+
 from agente.ui.clipboard import extrair_blocos
 
 
@@ -8,6 +10,18 @@ def _requer_qt():
         __import__("agente.ui.gui_app")
     except ModuleNotFoundError as exc:
         raise unittest.SkipTest(f"Qt indisponível no ambiente: {exc}") from exc
+
+
+_CREDENCIAIS_OPENROUTER = {
+    "id": "openrouter",
+    "nome": "OpenRouter",
+    "base_url": "https://openrouter.ai/api/v1",
+    "api_key_env": "OPENROUTER_API_KEY",
+    "modelos": ["anthropic/claude-3.5-sonnet", "openai/gpt-4o"],
+    "modelo_atual": "anthropic/claude-3.5-sonnet",
+}
+
+_CONFIG_COM_SERVIDORES = {"custom_servers": [_CREDENCIAIS_OPENROUTER]}
 
 
 class TestUtils(unittest.TestCase):
@@ -106,11 +120,13 @@ class TestUtils(unittest.TestCase):
             obter_servidores_customizados,
             obter_servidor_customizado,
         )
-        servidores = obter_servidores_customizados()
+        with patch("agente.models.custom.load_config", return_value=_CONFIG_COM_SERVIDORES):
+            servidores = obter_servidores_customizados()
         ids = [s.get("id") for s in servidores]
         self.assertIn("openrouter", ids)
 
-        openrouter_srv = obter_servidor_customizado("openrouter")
+        with patch("agente.models.custom.load_config", return_value=_CONFIG_COM_SERVIDORES):
+            openrouter_srv = obter_servidor_customizado("openrouter")
         self.assertIsNotNone(openrouter_srv)
         self.assertEqual(openrouter_srv.get("nome"), "OpenRouter")
         self.assertIsInstance(openrouter_srv.get("modelos", []), list)
@@ -261,13 +277,14 @@ class TestUtils(unittest.TestCase):
         from agente.main import obter_servico_padrao
         original = getattr(config, "DEFAULT_PROVIDER", "")
         try:
-            config.DEFAULT_PROVIDER = "custom:openrouter"
-            servico = obter_servico_padrao()
-            self.assertIn("OPENROUTER", servico.nome_provedor.upper())
+            with patch("agente.models.custom.load_config", return_value=_CONFIG_COM_SERVIDORES):
+                config.DEFAULT_PROVIDER = "custom:openrouter"
+                servico = obter_servico_padrao()
+                self.assertIn("OPENROUTER", servico.nome_provedor.upper())
 
-            config.DEFAULT_PROVIDER = "openrouter"
-            servico2 = obter_servico_padrao()
-            self.assertIn("OPENROUTER", servico2.nome_provedor.upper())
+                config.DEFAULT_PROVIDER = "openrouter"
+                servico2 = obter_servico_padrao()
+                self.assertIn("OPENROUTER", servico2.nome_provedor.upper())
         finally:
             config.DEFAULT_PROVIDER = original
 
