@@ -105,7 +105,7 @@ def _build_request(mensagens: list, stream: bool = False, model: str = None) -> 
         "messages": formatted_messages,
         "stream": stream,
         "max_tokens": getattr(config, "MAX_OUTPUT_TOKENS", 4096),
-        "temperature": getattr(config, "OLLAMA_TEMPERATURE", 0.7),
+        "temperature": getattr(config, "GROQ_TEMPERATURE", getattr(config, "DEFAULT_TEMPERATURE", 0.7)),
         "tools": OPENAI_TOOLS_DECLARATION,
         "tool_choice": "auto"
     }
@@ -142,7 +142,7 @@ def _handle_error(res, model: str = None):
 
 from agente.services.base import BaseService, parse_openai_sse_stream, process_tool_calls_map
 
-def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: int = 5, model: str = None):
+def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: int = 5, model: str = None, service=None):
     """Gera resposta via streaming SSE da Groq API (formato OpenAI)."""
     model_name = model or config.GROQ_MODEL
     headers, payload = _build_request(mensagens, stream=True, model=model_name)
@@ -150,42 +150,55 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
     from agente.services.http_client import get_http_client
     retries = 5
     for attempt in range(retries):
+        if service and getattr(service, "_aborted", False):
+            return
         tool_calls_map = {}
         try:
             client = get_http_client()
             with client.stream("POST", API_URL, headers=headers, json=payload) as res:
-                if res.status_code == 429 and attempt < retries - 1:
-                    import time
-                    espera = 3.0
-                    try:
-                        corpo = res.read().decode("utf-8")
-                        m = re.search(r"try again in ([\d\.]+)s", corpo)
-                        if m:
-                            espera = max(float(m.group(1)) + 1.0, 3.0)
-                    except Exception:
-                        pass
-                    time.sleep(espera)
-                    continue
-                _handle_error(res, model=model_name)
+                if service:
+                    service._active_stream = res
+                try:
+                    if res.status_code == 429 and attempt < retries - 1:
+                        import time
+                        espera = 3.0
+                        try:
+                            corpo = res.read().decode("utf-8")
+                            m = re.search(r"try again in ([\d\.]+)s", corpo)
+                            if m:
+                                espera = max(float(m.group(1)) + 1.0, 3.0)
+                        except Exception:
+                            pass
+                        time.sleep(espera)
+                        continue
+                    _handle_error(res, model=model_name)
 
-                yield from parse_openai_sse_stream(res.iter_lines(), tool_calls_map)
+                    yield from parse_openai_sse_stream(res.iter_lines(), tool_calls_map)
+                finally:
+                    if service:
+                        service._active_stream = None
             break
-        except httpx.RequestError as e:
+        except (httpx.RequestError, Exception) as e:
+            if service and getattr(service, "_aborted", False):
+                return
             if attempt == retries - 1:
                 raise RuntimeError(f"Erro de conexão com Groq API: {e}")
             import time
             time.sleep(1.5)
 
     if tool_calls_map:
+        if service and getattr(service, "_aborted", False):
+            return
         if iteration >= max_iterations:
             yield f"\n[Aviso: Limite de {max_iterations} execuções de ferramentas atingido para esta rodada.]\n"
             return
 
         process_tool_calls_map(tool_calls_map, mensagens, iteration=iteration)
-        yield from gerar_resposta_stream(mensagens, iteration=iteration + 1, max_iterations=max_iterations, model=model_name)
+        yield from gerar_resposta_stream(mensagens, iteration=iteration + 1, max_iterations=max_iterations, model=model_name, service=service)
 
 class GroqService(BaseService):
     def __init__(self, model: str = None):
+        super().__init__()
         self.model = model or config.GROQ_MODEL
 
     @property
@@ -193,4 +206,5 @@ class GroqService(BaseService):
         return f"GROQ ({self.model})"
 
     def gerar_resposta_stream(self, mensagens: list):
-        return gerar_resposta_stream(mensagens, model=self.model)
+        self._aborted = False
+        return gerar_resposta_stream(mensagens, model=self.model, service=self)

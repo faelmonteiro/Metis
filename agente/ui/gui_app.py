@@ -1,10 +1,10 @@
-import base64
 import json
 import logging
 import mimetypes
 import os
 import re
 import shutil
+import subprocess
 import sys
 import time
 import webbrowser
@@ -25,7 +25,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "wayland;xcb")
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QLineEdit, QTextEdit, QFrame,
-    QScrollArea, QStackedWidget, QSizePolicy, QDialog, QMessageBox, QCheckBox,
+    QScrollArea, QStackedWidget, QDialog, QMessageBox, QCheckBox,
     QInputDialog, QComboBox, QFileDialog, QPlainTextEdit, QMenu, QGridLayout,
     QToolTip, QListWidget, QListWidgetItem, QSlider
 )
@@ -36,6 +36,7 @@ from agente import config
 from agente.history import HistoryManager
 from agente.prompts import build_system_prompt, _is_small_model
 from agente.providers_manager import (
+    load_config,
     obter_modelos_provedor,
     adicionar_modelo_provedor,
     remover_modelo_provedor,
@@ -46,12 +47,14 @@ from agente.providers_manager import (
     atualizar_modelo_ativo_servidor,
     salvar_variavel_env,
     obter_preferencia,
-    salvar_preferencia
+    salvar_preferencia,
+    obter_servidores_removidos,
+    is_servidor_removido,
+    remover_servidor_provedor,
+    restaurar_servidor_provedor
 )
 from agente.ui.theme_manager import (
-    THEMES,
     FONT_SIZE_MAP,
-    FONT_FAMILY_MAP,
     get_available_themes,
     get_current_theme_id,
     get_current_theme_colors,
@@ -64,7 +67,7 @@ from agente.ui.theme_manager import (
     set_theme_preference,
     build_theme_qss
 )
-from agente.services import searxng_service, ollama_service, file_reader, media_cache, tools_defs
+from agente.services import searxng_service, ollama_service, file_reader, tools_defs
 from agente.services.ollama_service import OllamaService
 from agente.services.gemini_service import GeminiService
 from agente.services.groq_service import GroqService
@@ -76,7 +79,6 @@ from agente.utils import (
     limitar_texto,
     hyprctl,
     mover_janela_canto_superior_direito,
-    caminho_leitura_seguro,
     verificar_conexao_internet
 )
 
@@ -107,6 +109,8 @@ class AIWorker(QThread):
     chunk_received = pyqtSignal(str)
     search_started = pyqtSignal(str)
     search_done = pyqtSignal(list)
+    tool_started = pyqtSignal(dict)
+    tool_finished = pyqtSignal(dict)
     tool_executed = pyqtSignal(str)
     finished_response = pyqtSignal(str)
     error_occurred = pyqtSignal(str)
@@ -131,8 +135,25 @@ class AIWorker(QThread):
 
     def cancel(self):
         self._is_cancelled = True
+        if hasattr(self.service, "abort"):
+            try:
+                self.service.abort()
+            except Exception:
+                pass
 
     def run(self):
+        from agente.services.tool_executor import register_tool_listener, unregister_tool_listener
+
+        def on_tool_event(event_type: str, data: dict):
+            if self._is_cancelled:
+                return
+            if event_type == "tool_started":
+                self.tool_started.emit(data)
+            elif event_type == "tool_finished":
+                self.tool_finished.emit(data)
+
+        register_tool_listener(on_tool_event)
+
         try:
             # Em modo GUI, habilita auto-approve seguro de escrita/edição para não travar em stdin
             tools_defs.AUTO_APPROVE_MODE = True
@@ -144,13 +165,42 @@ class AIWorker(QThread):
             contexto_web = ""
 
             if deve_buscar and not self._is_cancelled:
+                start_w = time.monotonic()
+                self.tool_started.emit({
+                    "name": "buscar_web",
+                    "args": {"query": self.pergunta},
+                    "start_time": start_w
+                })
                 self.search_started.emit(self.pergunta)
                 try:
                     contexto_web = buscar_web(self.pergunta)
+                    dur_w = time.monotonic() - start_w
                     if contexto_web:
                         self.search_done.emit([{"title": "Resultados Web", "content": contexto_web}])
+                        self.tool_finished.emit({
+                            "name": "buscar_web",
+                            "args": {"query": self.pergunta},
+                            "result": f"Resultados encontrados na web ({len(contexto_web)} caracteres)",
+                            "duration": dur_w,
+                            "success": True
+                        })
+                    else:
+                        self.tool_finished.emit({
+                            "name": "buscar_web",
+                            "args": {"query": self.pergunta},
+                            "result": "Nenhum resultado web retornado.",
+                            "duration": dur_w,
+                            "success": True
+                        })
                 except Exception as e:
-                    pass
+                    dur_w = time.monotonic() - start_w
+                    self.tool_finished.emit({
+                        "name": "buscar_web",
+                        "args": {"query": self.pergunta},
+                        "result": f"Erro na busca web: {e}",
+                        "duration": dur_w,
+                        "success": False
+                    })
 
             if self._is_cancelled:
                 return
@@ -191,13 +241,20 @@ class AIWorker(QThread):
             mensagens.append(user_msg_dict)
 
             full_response = ""
-            for chunk in self.service.gerar_resposta_stream(mensagens):
-                if self._is_cancelled:
+            try:
+                for chunk in self.service.gerar_resposta_stream(mensagens):
+                    if self._is_cancelled:
+                        full_response += "\n\n[Geração interrompida pelo usuário]"
+                        self.chunk_received.emit("\n\n[Geração interrompida]")
+                        break
+                    full_response += chunk
+                    self.chunk_received.emit(chunk)
+            except Exception as stream_err:
+                if not self._is_cancelled:
+                    raise stream_err
+                if "[Geração interrompida" not in full_response:
                     full_response += "\n\n[Geração interrompida pelo usuário]"
                     self.chunk_received.emit("\n\n[Geração interrompida]")
-                    break
-                full_response += chunk
-                self.chunk_received.emit(chunk)
 
             if not self._is_cancelled:
                 if not full_response.strip():
@@ -236,7 +293,218 @@ class AIWorker(QThread):
                 pass
             self.error_occurred.emit(str(e))
         finally:
+            unregister_tool_listener(on_tool_event)
             tools_defs.AUTO_APPROVE_MODE = False
+
+
+# -----------------------------------------------------------------------------
+# Worker para execução assíncrona de comandos /executar (não bloqueia a UI)
+# -----------------------------------------------------------------------------
+class CommandWorker(QThread):
+    """Worker thread para executar comandos de terminal sem congelar a GUI."""
+    finished = pyqtSignal(str, str)  # (command, output)
+    error_occurred = pyqtSignal(str)
+
+    def __init__(self, comando: str):
+        super().__init__()
+        self.comando = comando
+
+    def run(self):
+        from agente.services import tools_defs
+        tools_defs.AUTO_APPROVE_MODE = True
+        try:
+            saida = tools_defs.executar_comando(self.comando)
+            self.finished.emit(self.comando, saida)
+        except Exception as e:
+            self.error_occurred.emit(str(e))
+        finally:
+            tools_defs.AUTO_APPROVE_MODE = False
+
+
+# -----------------------------------------------------------------------------
+# Componente de Checklist Visual de Execução do Agente em Tempo Real
+# -----------------------------------------------------------------------------
+class AgentChecklistWidget(QFrame):
+    """
+    Card dinâmico de Checklist e Execução de Tarefas do Agente em tempo real.
+    Mostra o plano de ação, ferramentas acionadas, progresso e detalhes recolhíveis.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("AgentChecklistCard")
+        self.setStyleSheet("""
+            QFrame#AgentChecklistCard {
+                background-color: #0b1320;
+                border: 1px solid #1e293b;
+                border-left: 3px solid #f0a85d;
+                border-radius: 8px;
+                margin: 4px 0px 8px 0px;
+                padding: 6px 10px;
+            }
+        """)
+
+        self.items_data = []
+        self.is_collapsed = False
+
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(4, 4, 4, 4)
+        self.main_layout.setSpacing(6)
+
+        # Header
+        self.header_layout = QHBoxLayout()
+        self.header_layout.setSpacing(8)
+
+        self.lbl_header_title = QLabel("🤖  PLANO & AÇÕES DO AGENTE")
+        self.lbl_header_title.setFont(QFont("Sans Serif", 9, QFont.Weight.Bold))
+        self.lbl_header_title.setStyleSheet("color: #fad094; background: transparent;")
+        self.header_layout.addWidget(self.lbl_header_title)
+
+        self.lbl_badge = QLabel("0 passos")
+        self.lbl_badge.setFont(QFont("Sans Serif", 8, QFont.Weight.Bold))
+        self.lbl_badge.setStyleSheet("color: #94a3b8; background: #162234; border-radius: 4px; padding: 2px 6px;")
+        self.header_layout.addWidget(self.lbl_badge)
+
+        self.header_layout.addStretch()
+
+        self.btn_toggle = QPushButton("▾ Ocultar")
+        self.btn_toggle.setProperty("class", "ActionChip")
+        self.btn_toggle.setFixedWidth(70)
+        self.btn_toggle.clicked.connect(self.toggle_collapse)
+        self.header_layout.addWidget(self.btn_toggle)
+
+        self.main_layout.addLayout(self.header_layout)
+
+        # Container dos Itens
+        self.items_container = QWidget()
+        self.items_container.setStyleSheet("background: transparent;")
+        self.items_layout = QVBoxLayout(self.items_container)
+        self.items_layout.setContentsMargins(2, 2, 2, 2)
+        self.items_layout.setSpacing(4)
+        self.main_layout.addWidget(self.items_container)
+
+    def toggle_collapse(self):
+        self.is_collapsed = not self.is_collapsed
+        self.items_container.setVisible(not self.is_collapsed)
+        self.btn_toggle.setText("▸ Detalhes" if self.is_collapsed else "▾ Ocultar")
+
+    def _friendly_tool_info(self, name: str, args: dict) -> tuple[str, str]:
+        """Retorna (titulo_formatado, detalhe_amigavel) para a ferramenta."""
+        if name == "buscar_web":
+            q = str(args.get("query", "")).strip()
+            return "🌐 Pesquisa Web", f"Buscar: \"{q[:45]}\""
+        elif name == "executar_comando":
+            cmd = str(args.get("comando", "")).strip()
+            return "⚡ Executar no Terminal", f"$ {cmd[:50]}"
+        elif name == "ler_arquivo":
+            c = str(args.get("caminho", "")).strip()
+            return "📄 Ler Arquivo", f"Arquivo: {c}"
+        elif name == "listar_diretorio":
+            c = str(args.get("caminho", ".")).strip()
+            return "📁 Listar Diretório", f"Pasta: {c}"
+        elif name == "escrever_arquivo":
+            c = str(args.get("caminho", "")).strip()
+            return "✍️ Criar Arquivo", f"Gravar em: {c}"
+        elif name == "editar_arquivo":
+            c = str(args.get("caminho", "")).strip()
+            return "📝 Editar Arquivo", f"Diff em: {c}"
+        elif name == "gerar_pdf":
+            c = str(args.get("caminho_destino", "")).strip()
+            return "📑 Gerar PDF", f"Destino: {c}"
+        return f"🛠️ {name}", str(args)[:45]
+
+    def add_or_update_started(self, data: dict):
+        name = data.get("name", "")
+        args = data.get("args", {})
+        title, detail = self._friendly_tool_info(name, args)
+
+        row = QFrame()
+        row.setStyleSheet("background: #0f1a2a; border-radius: 6px; padding: 4px 6px;")
+        r_layout = QVBoxLayout(row)
+        r_layout.setContentsMargins(6, 4, 6, 4)
+        r_layout.setSpacing(2)
+
+        top_h = QHBoxLayout()
+        lbl_status = QLabel("⏳")
+        lbl_status.setFont(QFont("Sans Serif", 9))
+        top_h.addWidget(lbl_status)
+
+        lbl_desc = QLabel(f"<b>{title}</b> — <span style='color: #94a3b8;'>{detail}</span>")
+        lbl_desc.setFont(QFont("Sans Serif", 9))
+        lbl_desc.setStyleSheet("color: #e2e8f0; background: transparent;")
+        top_h.addWidget(lbl_desc, 1)
+
+        lbl_time = QLabel("executando...")
+        lbl_time.setFont(QFont("Sans Serif", 8))
+        lbl_time.setStyleSheet("color: #67e8f9; background: transparent; font-style: italic;")
+        top_h.addWidget(lbl_time)
+        r_layout.addLayout(top_h)
+
+        self.items_layout.addWidget(row)
+        item_entry = {
+            "name": name,
+            "args": args,
+            "row": row,
+            "lbl_status": lbl_status,
+            "lbl_desc": lbl_desc,
+            "lbl_time": lbl_time,
+            "r_layout": r_layout,
+            "finished": False
+        }
+        self.items_data.append(item_entry)
+        self._update_badge()
+
+    def add_or_update_finished(self, data: dict):
+        name = data.get("name", "")
+        duration = data.get("duration", 0.0)
+        success = data.get("success", True)
+        result = data.get("result", "")
+
+        target_item = None
+        for item in reversed(self.items_data):
+            if item["name"] == name and not item["finished"]:
+                target_item = item
+                break
+
+        if not target_item:
+            self.add_or_update_started(data)
+            target_item = self.items_data[-1]
+
+        target_item["finished"] = True
+        if success:
+            target_item["lbl_status"].setText("✅")
+            target_item["lbl_time"].setText(f"{duration:.2f}s")
+            target_item["lbl_time"].setStyleSheet("color: #4ade80; background: transparent; font-weight: bold;")
+        else:
+            target_item["lbl_status"].setText("❌")
+            target_item["lbl_time"].setText(f"falha ({duration:.2f}s)")
+            target_item["lbl_time"].setStyleSheet("color: #f87171; background: transparent; font-weight: bold;")
+
+        if result and len(str(result).strip()) > 0:
+            res_preview = str(result).strip()
+            lines = res_preview.split("\n")
+            short_res = "\n".join(lines[:3])
+            if len(lines) > 3 or len(short_res) > 150:
+                short_res = short_res[:150] + "..."
+
+            lbl_detail = QLabel(f"↳ <i>{short_res}</i>")
+            lbl_detail.setFont(QFont("Sans Serif", 8))
+            lbl_detail.setStyleSheet("color: #64748b; background: transparent; padding-left: 18px;")
+            lbl_detail.setWordWrap(True)
+            target_item["r_layout"].addWidget(lbl_detail)
+
+        self._update_badge()
+
+    def _update_badge(self):
+        total = len(self.items_data)
+        done = sum(1 for i in self.items_data if i["finished"])
+        if done == total and total > 0:
+            self.lbl_badge.setText(f"{done}/{total} concluídos")
+            self.lbl_badge.setStyleSheet("color: #4ade80; background: #14532d; border-radius: 4px; padding: 2px 6px;")
+            self.lbl_header_title.setText("🤖  AÇÕES DO AGENTE CONCLUÍDAS")
+        else:
+            self.lbl_badge.setText(f"{done}/{total} passos")
+            self.lbl_badge.setStyleSheet("color: #fad094; background: #162234; border-radius: 4px; padding: 2px 6px;")
+            self.lbl_header_title.setText("🤖  AGENTE EM EXECUÇÃO...")
 
 
 # -----------------------------------------------------------------------------
@@ -412,7 +680,8 @@ class ModernApisDialog(QDialog):
             "✨",
             "GEMINI_API_KEY",
             config.GEMINI_API_KEY,
-            "Obtenha gratuitamente no Google AI Studio (aistudio.google.com)"
+            "Obtenha gratuitamente no Google AI Studio (aistudio.google.com)",
+            provider_key="gemini"
         )
 
         # 2. Groq Cloud
@@ -422,7 +691,8 @@ class ModernApisDialog(QDialog):
             "⚡",
             "GROQ_API_KEY",
             config.GROQ_API_KEY,
-            "Obtenha gratuitamente no console da Groq (console.groq.com)"
+            "Obtenha gratuitamente no console da Groq (console.groq.com)",
+            provider_key="groq"
         )
 
         # 3. NVIDIA NIM
@@ -432,7 +702,8 @@ class ModernApisDialog(QDialog):
             "🟢",
             "NVIDIA_API_KEY",
             getattr(config, "NVIDIA_API_KEY", ""),
-            "Chave de inferência da NVIDIA (build.nvidia.com)"
+            "Chave de inferência da NVIDIA (build.nvidia.com)",
+            provider_key="nvidia"
         )
 
         # 4. OpenRouter
@@ -442,34 +713,9 @@ class ModernApisDialog(QDialog):
             "🌐",
             "OPENROUTER_API_KEY",
             os.getenv("OPENROUTER_API_KEY", "").strip(),
-            "Chave unificada para centenas de modelos comerciais e gratuitos (openrouter.ai/keys)"
+            "Chave unificada para centenas de modelos comerciais e gratuitos (openrouter.ai/keys)",
+            provider_key="openrouter"
         )
-
-        # 5. Configurações Extras
-        extra_card = QFrame()
-        extra_card.setProperty("class", "ApiCard")
-        l_ex = QVBoxLayout(extra_card)
-        l_ex.setContentsMargins(14, 10, 14, 10)
-        l_ex.setSpacing(6)
-
-        lbl_ex_title = QLabel("⚙️  OPÇÕES AVANÇADAS DO AGENTE")
-        lbl_ex_title.setFont(QFont("Sans Serif", 9, QFont.Weight.Bold))
-        lbl_ex_title.setStyleSheet("color: #f0a85d; background: transparent;")
-        l_ex.addWidget(lbl_ex_title)
-
-        row_chk = QHBoxLayout()
-        self.chk_enable_cmd = QCheckBox("Permitir execução segura de comandos no terminal (ENABLE_COMMAND_TOOL)")
-        self.chk_enable_cmd.setChecked(bool(config.ENABLE_COMMAND_TOOL))
-        self.chk_enable_cmd.setStyleSheet("color: #cbd5e1; font-size: 11px;")
-        row_chk.addWidget(self.chk_enable_cmd)
-        l_ex.addLayout(row_chk)
-
-        self.chk_fetch_page = QCheckBox("Extrair conteúdo completo de páginas na busca web (FETCH_PAGE_CONTENT)")
-        self.chk_fetch_page.setChecked(bool(config.FETCH_PAGE_CONTENT))
-        self.chk_fetch_page.setStyleSheet("color: #cbd5e1; font-size: 11px;")
-        l_ex.addWidget(self.chk_fetch_page)
-
-        c_layout.addWidget(extra_card)
 
         scroll.setWidget(container)
         root.addWidget(scroll, 1)
@@ -490,7 +736,7 @@ class ModernApisDialog(QDialog):
 
         root.addLayout(f_layout)
 
-    def _add_api_field(self, parent_layout, label_text: str, icon: str, env_name: str, current_value: str, hint: str, is_password: bool = True):
+    def _add_api_field(self, parent_layout, label_text: str, icon: str, env_name: str, current_value: str, hint: str, is_password: bool = True, provider_key: str = ""):
         card = QFrame()
         card.setProperty("class", "ApiCard")
         l = QVBoxLayout(card)
@@ -509,6 +755,25 @@ class ModernApisDialog(QDialog):
         lbl_st.setStyleSheet("color: #4ade80;" if has_key else "color: #64748b;")
         h_row.addStretch()
         h_row.addWidget(lbl_st)
+
+        if provider_key and is_servidor_removido(provider_key):
+            lbl_rem = QLabel("○ Ocultado da lista")
+            lbl_rem.setFont(QFont("Sans Serif", 8, QFont.Weight.Bold))
+            lbl_rem.setStyleSheet("color: #f87171; background: #450a0a; border-radius: 4px; padding: 2px 6px;")
+            h_row.addWidget(lbl_rem)
+
+            btn_res = QPushButton("🔄 Reativar")
+            btn_res.setProperty("class", "ActionChip")
+            btn_res.setCursor(Qt.CursorShape.PointingHandCursor)
+            def _res_prov(pk=provider_key, lr=lbl_rem, br=btn_res):
+                restaurar_servidor_provedor(pk)
+                lr.setText("● Reativado")
+                lr.setStyleSheet("color: #4ade80; background: #14532d; border-radius: 4px; padding: 2px 6px;")
+                br.setVisible(False)
+                self.keys_saved.emit()
+            btn_res.clicked.connect(_res_prov)
+            h_row.addWidget(btn_res)
+
         l.addLayout(h_row)
 
         input_row = QHBoxLayout()
@@ -555,26 +820,334 @@ class ModernApisDialog(QDialog):
         groq_val = self.input_groq.text().strip()
         nvidia_val = self.input_nvidia.text().strip()
         openrouter_val = self.input_openrouter.text().strip()
-        cmd_val = "1" if self.chk_enable_cmd.isChecked() else "0"
-        fetch_val = "1" if self.chk_fetch_page.isChecked() else "0"
 
         # Salva no .env
         salvar_variavel_env("GEMINI_API_KEY", gemini_val)
         salvar_variavel_env("GROQ_API_KEY", groq_val)
         salvar_variavel_env("NVIDIA_API_KEY", nvidia_val)
         salvar_variavel_env("OPENROUTER_API_KEY", openrouter_val)
-        salvar_variavel_env("ENABLE_COMMAND_TOOL", cmd_val)
-        salvar_variavel_env("FETCH_PAGE_CONTENT", fetch_val)
 
         # Atualiza em memória no módulo config / os.environ
         config.GEMINI_API_KEY = gemini_val
         config.GROQ_API_KEY = groq_val
         config.NVIDIA_API_KEY = nvidia_val
         os.environ["OPENROUTER_API_KEY"] = openrouter_val
-        config.ENABLE_COMMAND_TOOL = (cmd_val == "1")
-        config.FETCH_PAGE_CONTENT = (fetch_val == "1")
 
         self.keys_saved.emit()
+        self.accept()
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.reject()
+        super().keyPressEvent(event)
+
+
+# -----------------------------------------------------------------------------
+# Janela Modal Elegante de Opções do Agente
+# -----------------------------------------------------------------------------
+class ModernAgentOptionsDialog(QDialog):
+    options_saved = pyqtSignal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Metis • Opções do Agente")
+        _constrain_dialog_to_parent(self, 720, 580, parent)
+        self.setStyleSheet(build_dynamic_qss())
+
+        f_sz = get_current_font_sizes()
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(20, 16, 20, 16)
+        root.setSpacing(12)
+
+        # Header
+        h_layout = QHBoxLayout()
+        lbl_icon = QLabel("🤖")
+        lbl_icon.setFont(QFont("Sans Serif", f_sz.get("icon", 16)))
+        lbl_icon.setStyleSheet("background: transparent;")
+        h_layout.addWidget(lbl_icon)
+
+        t_box = QVBoxLayout()
+        t_box.setSpacing(2)
+        lbl_title = QLabel("OPÇÕES DO AGENTE")
+        lbl_title.setFont(QFont("Sans Serif", f_sz.get("heading", 13), QFont.Weight.Bold))
+        lbl_title.setStyleSheet("color: #fad094; background: transparent;")
+        t_box.addWidget(lbl_title)
+
+        lbl_sub = QLabel("Personalize diretrizes, ferramentas de sistema, busca na web e memória do assistente")
+        lbl_sub.setFont(QFont("Sans Serif", int(f_sz.get("card_sub", 9))))
+        lbl_sub.setStyleSheet("color: #94a3b8; background: transparent;")
+        t_box.addWidget(lbl_sub)
+
+        h_layout.addLayout(t_box)
+        h_layout.addStretch()
+        root.addLayout(h_layout)
+
+        div = QFrame()
+        div.setFixedHeight(1)
+        div.setStyleSheet("background-color: #162234;")
+        root.addWidget(div)
+
+        # Scroll Area para rolagem suave se a janela for pequena
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        container = QWidget()
+        c_layout = QVBoxLayout(container)
+        c_layout.setContentsMargins(0, 0, 0, 0)
+        c_layout.setSpacing(12)
+
+        # -------------------------------------------------------------
+        # SEÇÃO 1: Personalidade & Diretrizes
+        # -------------------------------------------------------------
+        card_behav = QFrame()
+        card_behav.setProperty("class", "ApiCard")
+        l_behav = QVBoxLayout(card_behav)
+        l_behav.setContentsMargins(14, 12, 14, 12)
+        l_behav.setSpacing(8)
+
+        lbl_sec1 = QLabel("🧠  PERSONALIDADE & DIRETRIZES DO AGENTE")
+        lbl_sec1.setFont(QFont("Sans Serif", 9, QFont.Weight.Bold))
+        lbl_sec1.setStyleSheet("color: #f0a85d; background: transparent;")
+        l_behav.addWidget(lbl_sec1)
+
+        lbl_sp = QLabel("Instruções personalizadas (System Prompt Customizado):")
+        lbl_sp.setFont(QFont("Sans Serif", 9, QFont.Weight.Bold))
+        lbl_sp.setStyleSheet("color: #cbd5e1; background: transparent;")
+        l_behav.addWidget(lbl_sp)
+
+        self.txt_system_prompt = QPlainTextEdit()
+        self.txt_system_prompt.setProperty("class", "KeyInput")
+        self.txt_system_prompt.setFixedHeight(75)
+        self.txt_system_prompt.setPlaceholderText(
+            "Ex: Responda em português brasileiro de forma técnica e objetiva. Priorize atalhos e comandos para Hyprland e Arch Linux..."
+        )
+        curr_sys_prompt = getattr(config, "SYSTEM_PROMPT_CUSTOM", "") or os.getenv("SYSTEM_PROMPT", "")
+        self.txt_system_prompt.setPlainText(curr_sys_prompt)
+        l_behav.addWidget(self.txt_system_prompt)
+
+        lbl_sp_hint = QLabel("💡 Deixe em branco para usar as diretrizes automáticas inteligentes do Metis.")
+        lbl_sp_hint.setFont(QFont("Sans Serif", 8))
+        lbl_sp_hint.setStyleSheet("color: #64748b; background: transparent;")
+        l_behav.addWidget(lbl_sp_hint)
+
+        div_b = QFrame()
+        div_b.setFixedHeight(1)
+        div_b.setStyleSheet("background-color: #1a2638;")
+        l_behav.addWidget(div_b)
+
+        h_temp = QHBoxLayout()
+        lbl_temp_title = QLabel("Nível de Criatividade (Temperatura):")
+        lbl_temp_title.setFont(QFont("Sans Serif", 9, QFont.Weight.Bold))
+        lbl_temp_title.setStyleSheet("color: #cbd5e1; background: transparent;")
+        h_temp.addWidget(lbl_temp_title)
+
+        self.combo_temp = QComboBox()
+        self.combo_temp.addItem("🎯 Preciso & Determinístico (0.2) - Código e comandos", 0.2)
+        self.combo_temp.addItem("⚖️ Equilibrado (0.7) - Padrão recomendado", 0.7)
+        self.combo_temp.addItem("💡 Criativo & Detalhado (1.0) - Ideias e textos longos", 1.0)
+
+        curr_temp = getattr(config, "DEFAULT_TEMPERATURE", 0.7)
+        if curr_temp <= 0.3:
+            self.combo_temp.setCurrentIndex(0)
+        elif curr_temp >= 0.9:
+            self.combo_temp.setCurrentIndex(2)
+        else:
+            self.combo_temp.setCurrentIndex(1)
+
+        h_temp.addWidget(self.combo_temp, 1)
+        l_behav.addLayout(h_temp)
+
+        c_layout.addWidget(card_behav)
+
+        # -------------------------------------------------------------
+        # SEÇÃO 2: Ferramentas & Execução no Sistema
+        # -------------------------------------------------------------
+        card_tools = QFrame()
+        card_tools.setProperty("class", "ApiCard")
+        l_tools = QVBoxLayout(card_tools)
+        l_tools.setContentsMargins(14, 12, 14, 12)
+        l_tools.setSpacing(8)
+
+        lbl_sec2 = QLabel("⚡  FERRAMENTAS & EXECUÇÃO NO SISTEMA")
+        lbl_sec2.setFont(QFont("Sans Serif", 9, QFont.Weight.Bold))
+        lbl_sec2.setStyleSheet("color: #f0a85d; background: transparent;")
+        l_tools.addWidget(lbl_sec2)
+
+        self.chk_enable_cmd = QCheckBox("Permitir execução segura de comandos no terminal (ENABLE_COMMAND_TOOL)")
+        self.chk_enable_cmd.setChecked(bool(config.ENABLE_COMMAND_TOOL))
+        self.chk_enable_cmd.setStyleSheet("color: #fad094; font-size: 11px; font-weight: bold;")
+        l_tools.addWidget(self.chk_enable_cmd)
+
+        lbl_cmd_hint = QLabel("Habilita o agente a executar comandos seguros no sistema operacional para diagnósticos e tarefas locais.")
+        lbl_cmd_hint.setFont(QFont("Sans Serif", 8))
+        lbl_cmd_hint.setStyleSheet("color: #64748b; background: transparent; padding-left: 20px;")
+        lbl_cmd_hint.setWordWrap(True)
+        l_tools.addWidget(lbl_cmd_hint)
+
+        div_t = QFrame()
+        div_t.setFixedHeight(1)
+        div_t.setStyleSheet("background-color: #1a2638;")
+        l_tools.addWidget(div_t)
+
+        self.chk_visual_checklist = QCheckBox("Exibir checklist visual de execução em tempo real (AGENT_VISUAL_CHECKLIST)")
+        self.chk_visual_checklist.setChecked(bool(getattr(config, "AGENT_VISUAL_CHECKLIST", True)))
+        self.chk_visual_checklist.setStyleSheet("color: #fad094; font-size: 11px; font-weight: bold;")
+        l_tools.addWidget(self.chk_visual_checklist)
+
+        lbl_check_hint = QLabel("Mostra um painel interativo na mensagem do chat com as ações e ferramentas executadas pelo agente.")
+        lbl_check_hint.setFont(QFont("Sans Serif", 8))
+        lbl_check_hint.setStyleSheet("color: #64748b; background: transparent; padding-left: 20px;")
+        lbl_check_hint.setWordWrap(True)
+        l_tools.addWidget(lbl_check_hint)
+
+        c_layout.addWidget(card_tools)
+
+        # -------------------------------------------------------------
+        # SEÇÃO 3: Pesquisa na Web & Fontes
+        # -------------------------------------------------------------
+        card_web = QFrame()
+        card_web.setProperty("class", "ApiCard")
+        l_web = QVBoxLayout(card_web)
+        l_web.setContentsMargins(14, 12, 14, 12)
+        l_web.setSpacing(8)
+
+        lbl_sec3 = QLabel("🌐  PESQUISA NA WEB & ENRIQUECIMENTO")
+        lbl_sec3.setFont(QFont("Sans Serif", 9, QFont.Weight.Bold))
+        lbl_sec3.setStyleSheet("color: #f0a85d; background: transparent;")
+        l_web.addWidget(lbl_sec3)
+
+        self.chk_fetch_page = QCheckBox("Extrair conteúdo completo de páginas na busca web (FETCH_PAGE_CONTENT)")
+        self.chk_fetch_page.setChecked(bool(config.FETCH_PAGE_CONTENT))
+        self.chk_fetch_page.setStyleSheet("color: #fad094; font-size: 11px; font-weight: bold;")
+        l_web.addWidget(self.chk_fetch_page)
+
+        lbl_fetch_hint = QLabel("Lê e sintetiza o corpo textual completo das páginas encontradas, gerando respostas mais ricas.")
+        lbl_fetch_hint.setFont(QFont("Sans Serif", 8))
+        lbl_fetch_hint.setStyleSheet("color: #64748b; background: transparent; padding-left: 20px;")
+        lbl_fetch_hint.setWordWrap(True)
+        l_web.addWidget(lbl_fetch_hint)
+
+        div_w = QFrame()
+        div_w.setFixedHeight(1)
+        div_w.setStyleSheet("background-color: #1a2638;")
+        l_web.addWidget(div_w)
+
+        h_search_res = QHBoxLayout()
+        lbl_res_title = QLabel("Resultados consultados por pesquisa:")
+        lbl_res_title.setFont(QFont("Sans Serif", 9, QFont.Weight.Bold))
+        lbl_res_title.setStyleSheet("color: #cbd5e1; background: transparent;")
+        h_search_res.addWidget(lbl_res_title)
+
+        self.combo_search_res = QComboBox()
+        self.combo_search_res.addItem("3 resultados (Rápido e econômico)", 3)
+        self.combo_search_res.addItem("5 resultados (Padrão balanceado)", 5)
+        self.combo_search_res.addItem("8 resultados (Pesquisa aprofundada)", 8)
+
+        curr_max_s = getattr(config, "MAX_SEARCH_RESULTS", 5)
+        if curr_max_s <= 3:
+            self.combo_search_res.setCurrentIndex(0)
+        elif curr_max_s >= 8:
+            self.combo_search_res.setCurrentIndex(2)
+        else:
+            self.combo_search_res.setCurrentIndex(1)
+
+        h_search_res.addWidget(self.combo_search_res, 1)
+        l_web.addLayout(h_search_res)
+
+        c_layout.addWidget(card_web)
+
+        # -------------------------------------------------------------
+        # SEÇÃO 4: Memória & Contexto
+        # -------------------------------------------------------------
+        card_mem = QFrame()
+        card_mem.setProperty("class", "ApiCard")
+        l_mem = QVBoxLayout(card_mem)
+        l_mem.setContentsMargins(14, 12, 14, 12)
+        l_mem.setSpacing(8)
+
+        lbl_sec4 = QLabel("📜  MEMÓRIA & CONTEXTO DA CONVERSA")
+        lbl_sec4.setFont(QFont("Sans Serif", 9, QFont.Weight.Bold))
+        lbl_sec4.setStyleSheet("color: #f0a85d; background: transparent;")
+        l_mem.addWidget(lbl_sec4)
+
+        h_mem = QHBoxLayout()
+        lbl_mem_title = QLabel("Mensagens mantidas na memória ativa:")
+        lbl_mem_title.setFont(QFont("Sans Serif", 9, QFont.Weight.Bold))
+        lbl_mem_title.setStyleSheet("color: #cbd5e1; background: transparent;")
+        h_mem.addWidget(lbl_mem_title)
+
+        self.combo_mem = QComboBox()
+        self.combo_mem.addItem("10 mensagens (Mais veloz, menor uso de RAM)", 10)
+        self.combo_mem.addItem("20 mensagens (Padrão recomendado)", 20)
+        self.combo_mem.addItem("30 mensagens (Memória estendida)", 30)
+        self.combo_mem.addItem("50 mensagens (Contexto de longo prazo)", 50)
+
+        curr_max_m = getattr(config, "MAX_HISTORY_MESSAGES", 20)
+        if curr_max_m <= 10:
+            self.combo_mem.setCurrentIndex(0)
+        elif curr_max_m <= 20:
+            self.combo_mem.setCurrentIndex(1)
+        elif curr_max_m <= 30:
+            self.combo_mem.setCurrentIndex(2)
+        else:
+            self.combo_mem.setCurrentIndex(3)
+
+        h_mem.addWidget(self.combo_mem, 1)
+        l_mem.addLayout(h_mem)
+
+        c_layout.addWidget(card_mem)
+
+        scroll.setWidget(container)
+        root.addWidget(scroll, 1)
+
+        # Footer
+        f_layout = QHBoxLayout()
+        f_layout.addStretch()
+
+        btn_cancel = QPushButton("Cancelar (ESC)")
+        btn_cancel.setProperty("class", "SecondaryBtn")
+        btn_cancel.clicked.connect(self.reject)
+        f_layout.addWidget(btn_cancel)
+
+        btn_save = QPushButton("💾 Salvar Configurações")
+        btn_save.setProperty("class", "PrimaryBtn")
+        btn_save.clicked.connect(self.save_options)
+        f_layout.addWidget(btn_save)
+
+        root.addLayout(f_layout)
+
+    def save_options(self):
+        cmd_val = "1" if self.chk_enable_cmd.isChecked() else "0"
+        fetch_val = "1" if self.chk_fetch_page.isChecked() else "0"
+        checklist_val = "1" if self.chk_visual_checklist.isChecked() else "0"
+        sys_prompt_val = self.txt_system_prompt.toPlainText().strip()
+        temp_val = float(self.combo_temp.currentData())
+        max_search_val = int(self.combo_search_res.currentData())
+        max_mem_val = int(self.combo_mem.currentData())
+
+        # Salva no .env
+        salvar_variavel_env("ENABLE_COMMAND_TOOL", cmd_val)
+        salvar_variavel_env("FETCH_PAGE_CONTENT", fetch_val)
+        salvar_variavel_env("AGENT_VISUAL_CHECKLIST", checklist_val)
+        salvar_variavel_env("SYSTEM_PROMPT", sys_prompt_val)
+        salvar_variavel_env("DEFAULT_TEMPERATURE", str(temp_val))
+        salvar_variavel_env("OLLAMA_TEMPERATURE", str(temp_val))
+        salvar_variavel_env("GEMINI_TEMPERATURE", str(temp_val))
+        salvar_variavel_env("MAX_SEARCH_RESULTS", str(max_search_val))
+        salvar_variavel_env("MAX_HISTORY_MESSAGES", str(max_mem_val))
+
+        # Atualiza em memória
+        config.ENABLE_COMMAND_TOOL = (cmd_val == "1")
+        config.FETCH_PAGE_CONTENT = (fetch_val == "1")
+        config.AGENT_VISUAL_CHECKLIST = (checklist_val == "1")
+        config.SYSTEM_PROMPT_CUSTOM = sys_prompt_val
+        config.DEFAULT_TEMPERATURE = temp_val
+        config.OLLAMA_TEMPERATURE = temp_val
+        config.GEMINI_TEMPERATURE = temp_val
+        config.MAX_SEARCH_RESULTS = max_search_val
+        config.MAX_HISTORY_MESSAGES = max_mem_val
+
+        self.options_saved.emit()
         self.accept()
 
     def keyPressEvent(self, event):
@@ -1037,6 +1610,13 @@ class ModernRemoveModelDialog(QDialog):
         self.btn_del_selected.clicked.connect(self.delete_selected_models)
         f_layout.addWidget(self.btn_del_selected)
 
+        self.btn_del_server = QPushButton("🗑️ Excluir Servidor Definitivamente")
+        self.btn_del_server.setProperty("class", "SecondaryBtn")
+        self.btn_del_server.setStyleSheet("color: #f87171; border: 1px solid #7f1d1d;")
+        self.btn_del_server.setToolTip(f"Exclui permanentemente o servidor {self.provider_name} dos arquivos de configuração")
+        self.btn_del_server.clicked.connect(self.delete_current_server)
+        f_layout.addWidget(self.btn_del_server)
+
         f_layout.addStretch()
 
         btn_close = QPushButton("Concluído (ESC)")
@@ -1045,6 +1625,35 @@ class ModernRemoveModelDialog(QDialog):
         f_layout.addWidget(btn_close)
 
         root.addLayout(f_layout)
+
+    def delete_current_server(self):
+        removed = obter_servidores_removidos()
+        all_builtin = ["ollama", "gemini", "groq", "nvidia", "g4f"]
+        custom_s = obter_servidores_customizados()
+        remaining_count = sum(1 for p in all_builtin if p not in removed) + len(custom_s)
+        if remaining_count <= 1:
+            QMessageBox.warning(
+                self,
+                "Aviso",
+                "Não é possível excluir o único servidor restante. Mantenha ao menos um servidor ativo."
+            )
+            return
+
+        res = QMessageBox.warning(
+            self,
+            "Excluir Servidor Definitivamente",
+            f"Deseja realmente excluir permanentemente o servidor '{self.provider_name}' dos arquivos de configuração?\n\n"
+            "Ele será apagado definitivamente e não ficará oculto para restaurar.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if res == QMessageBox.StandardButton.Yes:
+            if self.server_id:
+                remover_servidor_customizado(self.server_id)
+            else:
+                remover_servidor_provedor(self.provider_name)
+            self.models_updated.emit()
+            self.accept()
 
     def save_api_key(self):
         if not self.env_name:
@@ -1200,6 +1809,204 @@ class ModernRemoveModelDialog(QDialog):
 
 
 # -----------------------------------------------------------------------------
+# Janela Modal para Visualizar e Restaurar Servidores de IA Removidos
+# -----------------------------------------------------------------------------
+class ModernRestoreServerDialog(QDialog):
+    """
+    Diálogo para visualizar e restaurar servidores nativos (Gemini, Groq, NVIDIA, Ollama, G4F)
+    ou customizados que foram removidos ou desativados pelo usuário.
+    """
+    server_restored = pyqtSignal()
+
+    BUILTIN_META = {
+        "gemini": {
+            "name": "Google Gemini",
+            "icon": "✨",
+            "category": "NUVEM / GOOGLE",
+            "desc": "Modelos multimodais de alto desempenho do Google com suporte a imagens e janela de contexto estendida.",
+        },
+        "groq": {
+            "name": "Groq Cloud",
+            "icon": "⚡",
+            "category": "INFERÊNCIA ULTRA-RÁPIDA",
+            "desc": "Inferência ultra-rápida em chips LPU com Llama 3.3, DeepSeek R1 e Qwen.",
+        },
+        "nvidia": {
+            "name": "NVIDIA NIM",
+            "icon": "🟢",
+            "category": "GPU MICROSSERVIÇOS",
+            "desc": "Inferência acelerada em GPUs NVIDIA (Llama 3.1 70B, Vision, Nemotron).",
+        },
+        "ollama": {
+            "name": "Ollama Local",
+            "icon": "🏛️",
+            "category": "LOCAL / OFFLINE",
+            "desc": "Modelos open-source locais sem envio de dados para a nuvem.",
+        },
+        "g4f": {
+            "name": "IA Web (G4F)",
+            "icon": "🌍",
+            "category": "COMUNITÁRIO / FREE",
+            "desc": "Provedor comunitário para múltiplos modelos sem necessidade de chaves pagas.",
+        },
+        "openrouter": {
+            "name": "OpenRouter",
+            "icon": "🌐",
+            "category": "OPENAI COMPATÍVEL",
+            "desc": "Servidor com acesso a centenas de modelos livres e comerciais.",
+        }
+    }
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Metis • Restaurar Servidores de IA")
+        _constrain_dialog_to_parent(self, 640, 480, parent)
+        self.setStyleSheet(build_dynamic_qss())
+
+        self.init_ui()
+        self.load_removed_servers()
+
+    def init_ui(self):
+        f_sz = get_current_font_sizes()
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(20, 16, 20, 16)
+        root.setSpacing(12)
+
+        # Header
+        h_layout = QHBoxLayout()
+        lbl_icon = QLabel("🔄")
+        lbl_icon.setFont(QFont("Sans Serif", f_sz.get("icon", 16)))
+        lbl_icon.setStyleSheet("background: transparent;")
+        h_layout.addWidget(lbl_icon)
+
+        t_box = QVBoxLayout()
+        t_box.setSpacing(2)
+        lbl_title = QLabel("RESTAURAR SERVIDORES DE IA")
+        lbl_title.setFont(QFont("Sans Serif", f_sz.get("heading", 13), QFont.Weight.Bold))
+        lbl_title.setStyleSheet("color: #fad094; background: transparent;")
+        t_box.addWidget(lbl_title)
+
+        lbl_sub = QLabel("Reative provedores nativos ou customizados removidos anteriormente:")
+        lbl_sub.setFont(QFont("Sans Serif", f_sz.get("card_sub", 8.5)))
+        lbl_sub.setStyleSheet("color: #94a3b8; background: transparent;")
+        t_box.addWidget(lbl_sub)
+
+        h_layout.addLayout(t_box)
+        h_layout.addStretch()
+        root.addLayout(h_layout)
+
+        div = QFrame()
+        div.setFixedHeight(1)
+        div.setStyleSheet("background-color: #162234;")
+        root.addWidget(div)
+
+        # Scroll area
+        self.scroll = QScrollArea()
+        self.scroll.setWidgetResizable(True)
+        self.container = QWidget()
+        self.cards_layout = QVBoxLayout(self.container)
+        self.cards_layout.setContentsMargins(0, 0, 0, 0)
+        self.cards_layout.setSpacing(8)
+        self.scroll.setWidget(self.container)
+        root.addWidget(self.scroll, 1)
+
+        # Footer
+        f_layout = QHBoxLayout()
+        f_layout.addStretch()
+        btn_close = QPushButton("Fechar (ESC)")
+        btn_close.setProperty("class", "PrimaryBtn")
+        btn_close.clicked.connect(self.accept)
+        f_layout.addWidget(btn_close)
+        root.addLayout(f_layout)
+
+    def load_removed_servers(self):
+        while self.cards_layout.count() > 0:
+            item = self.cards_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        removed = obter_servidores_removidos()
+        f_sz = get_current_font_sizes()
+
+        if not removed:
+            card_empty = QFrame()
+            card_empty.setProperty("class", "HelpCard")
+            l_e = QVBoxLayout(card_empty)
+            l_e.setContentsMargins(20, 24, 20, 24)
+            lbl_empty = QLabel("🎉 Todos os servidores de IA estão ativos!\nNenhum provedor está desativado ou oculto no momento.")
+            lbl_empty.setFont(QFont("Sans Serif", 10))
+            lbl_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            lbl_empty.setStyleSheet("color: #4ade80; background: transparent;")
+            l_e.addWidget(lbl_empty)
+            self.cards_layout.addWidget(card_empty)
+            return
+
+        for srv_id in removed:
+            meta = self.BUILTIN_META.get(srv_id.lower(), {
+                "name": srv_id.capitalize(),
+                "icon": "🌐",
+                "category": "SERVIDOR CUSTOM",
+                "desc": "Servidor de API cadastrado pelo usuário."
+            })
+
+            card = QFrame()
+            card.setProperty("class", "TurnCard")
+            c_layout = QHBoxLayout(card)
+            c_layout.setContentsMargins(14, 12, 14, 12)
+            c_layout.setSpacing(12)
+
+            lbl_ico = QLabel(meta["icon"])
+            lbl_ico.setFont(QFont("Sans Serif", 18))
+            lbl_ico.setStyleSheet("background: transparent;")
+            c_layout.addWidget(lbl_ico)
+
+            t_col = QVBoxLayout()
+            t_col.setSpacing(3)
+
+            h_title = QHBoxLayout()
+            lbl_n = QLabel(meta["name"])
+            lbl_n.setFont(QFont("Sans Serif", f_sz.get("card_title", 10), QFont.Weight.Bold))
+            lbl_n.setStyleSheet("color: #fad094; background: transparent;")
+            h_title.addWidget(lbl_n)
+
+            lbl_tag = QLabel(meta["category"])
+            lbl_tag.setProperty("class", "ProviderTag")
+            h_title.addWidget(lbl_tag)
+            h_title.addStretch()
+            t_col.addLayout(h_title)
+
+            lbl_d = QLabel(meta["desc"])
+            lbl_d.setFont(QFont("Sans Serif", 8))
+            lbl_d.setStyleSheet("color: #94a3b8; background: transparent;")
+            lbl_d.setWordWrap(True)
+            t_col.addWidget(lbl_d)
+
+            c_layout.addLayout(t_col, 1)
+
+            btn_res = QPushButton("🔄 Restaurar")
+            btn_res.setProperty("class", "PrimaryBtn")
+            btn_res.setFixedHeight(34)
+            btn_res.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_res.clicked.connect(lambda _, sid=srv_id: self.restore_server(sid))
+            c_layout.addWidget(btn_res)
+
+            self.cards_layout.addWidget(card)
+
+        self.cards_layout.addStretch()
+
+    def restore_server(self, srv_id: str):
+        restaurar_servidor_provedor(srv_id)
+        self.server_restored.emit()
+        self.load_removed_servers()
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Escape:
+            self.accept()
+        super().keyPressEvent(event)
+
+
+# -----------------------------------------------------------------------------
 # Janela Modal Elegante de Ajuda
 # -----------------------------------------------------------------------------
 class ModernHelpDialog(QDialog):
@@ -1293,6 +2100,7 @@ class ModernHelpDialog(QDialog):
             ("01 - Consultar Metis", "Chat inteligente com IA e pesquisa web integrada (chave 🌐 ativável via switch ou /web)."),
             ("03 - Buscar Conhecimento", "Pesquisa web direta sem IA (resultados e links brutos)."),
             ("/web <pergunta>", "Força a busca web em tempo real para responder sua dúvida."),
+            ("/opcoes ou /avancado", "Configura ferramentas de terminal (ENABLE_COMMAND_TOOL) e extração web (FETCH_PAGE_CONTENT)."),
             ("/retry ou /repetir", "Rebobina e regenera a última resposta gerada pelo oráculo."),
         ])
 
@@ -1731,6 +2539,8 @@ SLASH_COMMANDS = [
     ("/sessao", "📁"),
     ("/exportar", "💾"),
     ("/status", "📊"),
+    ("/opcoes", "🤖"),
+    ("/restaurar", "🔄"),
     ("/ajuda", "❓"),
 ]
 
@@ -1967,12 +2777,17 @@ class SmartPromptTextEdit(QTextEdit):
                 self.returnPressed.emit()
                 return
 
-        # 2. Ctrl + C -> Se nada estiver selecionado, solicita cancelamento da IA
+        # 2. Ctrl + C -> Se nada estiver selecionado ou caixa vazia, solicita cancelamento da IA
         if event.key() == Qt.Key.Key_C and event.modifiers() == Qt.KeyboardModifier.ControlModifier:
             cursor = self.textCursor()
             if not cursor.hasSelection():
                 self.cancelRequested.emit()
                 return
+
+        # 3. Escape -> Interrompe geração da IA imediatamente
+        if event.key() == Qt.Key.Key_Escape:
+            self.cancelRequested.emit()
+            return
 
         super().keyPressEvent(event)
 
@@ -2115,7 +2930,6 @@ class MetisMainWindow(QMainWindow):
             self.sync_window_opacity(opacity)
 
             if getattr(config, "HYPRLAND_ENABLED", False) or shutil.which("hyprctl"):
-                import json, os, subprocess
                 pid = os.getpid()
                 clients_res = subprocess.run(["hyprctl", "clients", "-j"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, timeout=0.4)
                 if clients_res.returncode == 0:
@@ -2189,6 +3003,21 @@ class MetisMainWindow(QMainWindow):
             QTimer.singleShot(30, self.chat_input.setFocus)
         elif index == 2:
             QTimer.singleShot(30, self.search_input.setFocus)
+
+    def _on_command_finished(self, comando: str, saida: str):
+        """Callback quando comando /executar termina em background thread."""
+        resposta_formatada = f"⚡ **Comando Executado:** `{comando}`\n\n> 💡 **Resultado:** {saida}"
+        self.add_chat_bubble("assistant", resposta_formatada)
+        self.history_manager.adicionar_mensagem("user", f"/executar {comando}")
+        self.history_manager.adicionar_mensagem("assistant", resposta_formatada)
+        self.refresh_telemetry()
+
+    def _on_command_error(self, error: str):
+        """Callback quando comando /executar falha."""
+        resposta_erro = f"❌ **Erro ao executar comando:**\n```\n{error}\n```"
+        self.add_chat_bubble("assistant", resposta_erro)
+        self.history_manager.adicionar_mensagem("assistant", resposta_erro)
+        self.refresh_telemetry()
 
     def init_ui(self):
         central_widget = QWidget(self)
@@ -2626,19 +3455,32 @@ class MetisMainWindow(QMainWindow):
         has_groq = bool(config.GROQ_API_KEY)
         has_nvidia = bool(getattr(config, "NVIDIA_API_KEY", ""))
 
-        providers_list = [
+        removed_servers = obter_servidores_removidos()
+        cfg_builtin = load_config().get("builtin_models", {})
+        builtin_keys_lower = [k.lower() for k in cfg_builtin.keys()]
+
+        all_builtin = [
             ("ollama", "🏛️ Ollama Local"),
             ("gemini", "✨ Google Gemini"),
             ("groq", "⚡ Groq Cloud"),
             ("nvidia", "🟢 NVIDIA NIM"),
         ]
 
+        # Só lista como nativo se REALMENTE constar em builtin_models do config e não estiver removido
+        providers_list = [p for p in all_builtin if p[0].lower() in builtin_keys_lower and p[0].lower() not in removed_servers]
+
         custom_servidores = obter_servidores_customizados()
         for srv in custom_servidores:
             s_id = srv.get("id", "custom")
             providers_list.append((f"custom_{s_id}", f"🌐 {srv.get('nome', 'Custom')}"))
 
-        providers_list.append(("g4f", "🌍 IA Web (G4F)"))
+        if "g4f" in builtin_keys_lower and "g4f" not in removed_servers:
+            providers_list.append(("g4f", "🌍 IA Web (G4F)"))
+
+        # Se a aba atualmente selecionada foi removida, troca para a primeira disponível
+        available_keys = [p[0] for p in providers_list]
+        if self.selected_provider_tab not in available_keys:
+            self.selected_provider_tab = available_keys[0] if available_keys else "ollama"
 
         # Renderiza os botões da Sidebar
         for p_key, p_label in providers_list:
@@ -2988,7 +3830,9 @@ class MetisMainWindow(QMainWindow):
     # -------------------------------------------------------------------------
     # Ativação de Provedores
     # -------------------------------------------------------------------------
-    def activate_ollama(self, model_name: str):
+    def activate_ollama(self, model_name: str = ""):
+        if not model_name:
+            model_name = getattr(config, "OLLAMA_MODEL", "llama3.2:3b")
         config.OLLAMA_MODEL = model_name
         config.DEFAULT_PROVIDER = "ollama"
         salvar_variavel_env("OLLAMA_MODEL", model_name)
@@ -3158,14 +4002,85 @@ class MetisMainWindow(QMainWindow):
         nome = srv.get("nome", server_id) if srv else server_id
         res = QMessageBox.warning(
             self,
-            "Excluir Servidor",
-            f"Deseja remover o servidor '{nome}' da sua lista de provedores?",
+            "Excluir Servidor Definitivamente",
+            f"Deseja realmente excluir permanentemente o servidor '{nome}' dos arquivos de configuração?\n\n"
+            "Ele será apagado definitivamente.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.No
         )
         if res == QMessageBox.StandardButton.Yes:
             remover_servidor_customizado(server_id)
+            self.ensure_active_provider_valid()
             self.rebuild_oracle_buttons()
+            self.refresh_telemetry()
+            QMessageBox.information(
+                self,
+                "Servidor Excluído",
+                f"O servidor '{nome}' foi excluído permanentemente dos arquivos de configuração."
+            )
+
+    def delete_builtin_server(self, provider_key: str):
+        removed = obter_servidores_removidos()
+        all_builtin = ["ollama", "gemini", "groq", "nvidia", "g4f"]
+        custom_s = obter_servidores_customizados()
+        remaining_count = sum(1 for p in all_builtin if p not in removed) + len(custom_s)
+        if remaining_count <= 1:
+            QMessageBox.warning(
+                self,
+                "Aviso",
+                "Não é possível excluir o único servidor restante. Mantenha ao menos um servidor ativo."
+            )
+            return
+
+        res = QMessageBox.warning(
+            self,
+            "Excluir Servidor Definitivamente",
+            f"Deseja realmente excluir permanentemente o servidor '{provider_key}' dos arquivos de configuração?\n\n"
+            "Ele será apagado definitivamente e não ficará oculto para restaurar.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No
+        )
+        if res == QMessageBox.StandardButton.Yes:
+            remover_servidor_provedor(provider_key)
+            self.ensure_active_provider_valid()
+            self.rebuild_oracle_buttons()
+            self.refresh_telemetry()
+            QMessageBox.information(
+                self,
+                "Servidor Excluído",
+                f"O servidor '{provider_key}' foi excluído permanentemente dos arquivos de configuração."
+            )
+
+    def show_restore_server_dialog(self):
+        dlg = ModernRestoreServerDialog(self)
+        dlg.server_restored.connect(self.on_server_restored)
+        dlg.exec()
+
+    def on_server_restored(self):
+        self.rebuild_oracle_buttons()
+        self.refresh_telemetry()
+
+    def ensure_active_provider_valid(self):
+        removed = obter_servidores_removidos()
+        curr_prov = getattr(config, "DEFAULT_PROVIDER", "ollama").lower()
+        prov_clean = curr_prov.replace("custom:", "")
+        if prov_clean in removed or curr_prov in removed:
+            if "ollama" not in removed:
+                self.activate_ollama()
+            elif "gemini" not in removed and config.GEMINI_API_KEY:
+                self.activate_gemini()
+            elif "groq" not in removed and config.GROQ_API_KEY:
+                self.activate_groq()
+            elif "nvidia" not in removed and getattr(config, "NVIDIA_API_KEY", ""):
+                self.activate_nvidia()
+            elif "g4f" not in removed:
+                self.activate_g4f()
+            else:
+                for srv in obter_servidores_customizados():
+                    if srv.get("id", "").lower() not in removed:
+                        mod = srv.get("modelo_atual") or (srv.get("modelos") or ["default"])[0]
+                        self.activate_custom_server(srv, mod)
+                        break
 
     # -------------------------------------------------------------------------
     # UI: Painel Integrado de Arquivos da Memória & Turnos (Página 4)
@@ -3842,6 +4757,19 @@ class MetisMainWindow(QMainWindow):
 
     def eventFilter(self, source, event):
         if event.type() == QEvent.Type.KeyPress:
+            # 0. Interrupção instantânea da IA se ativa via ESC ou Ctrl+C
+            if self.active_worker and self.active_worker.isRunning():
+                if event.key() == Qt.Key.Key_Escape:
+                    self.stop_ai_generation()
+                    return True
+                if event.key() == Qt.Key.Key_C and (event.modifiers() & Qt.KeyboardModifier.ControlModifier):
+                    # Se houver texto selecionado no input, permite a cópia de texto normal
+                    if hasattr(source, "textCursor") and source.textCursor().hasSelection():
+                        pass
+                    else:
+                        self.stop_ai_generation()
+                        return True
+
             # 1. Navegação no Dashboard Principal (Página 0)
             if self.stack.currentIndex() == 0:
                 if event.key() == Qt.Key.Key_Down:
@@ -3905,6 +4833,12 @@ class MetisMainWindow(QMainWindow):
         self.chk_web.setStyleSheet("color: #fad094; font-weight: bold; padding-left: 4px;")
         self.chk_web.toggled.connect(lambda checked: salvar_preferencia("web_search_enabled", checked))
         chat_header.addWidget(self.chk_web)
+
+        self.btn_agent_options = QPushButton("🤖 Opções do Agente")
+        self.btn_agent_options.setProperty("class", "SecondaryBtn")
+        self.btn_agent_options.setToolTip("Opções do Agente (Terminal, Busca Web Profunda)")
+        self.btn_agent_options.clicked.connect(self.show_agent_options_dialog)
+        chat_header.addWidget(self.btn_agent_options)
 
         chat_header.addStretch()
 
@@ -3971,6 +4905,7 @@ class MetisMainWindow(QMainWindow):
         self.chat_input.setObjectName("PromptInput")
         self.chat_input.returnPressed.connect(self.send_chat_message)
         self.chat_input.cancelRequested.connect(self.stop_ai_generation)
+        self.chat_input.installEventFilter(self)
         chat_input_layout.addWidget(self.chat_input, 1)
 
         self.btn_stop = QPushButton("⏹️ Parar")
@@ -4074,6 +5009,9 @@ class MetisMainWindow(QMainWindow):
         act_apis = menu.addAction("🔑 Configurar Chaves de API")
         act_apis.triggered.connect(self.show_apis_dialog)
 
+        act_agent_opt = menu.addAction("🤖 Opções do Agente")
+        act_agent_opt.triggered.connect(self.show_agent_options_dialog)
+
         menu.addSeparator()
 
         act_retry = menu.addAction("🔁 Repetir Último Turno (/retry)")
@@ -4112,6 +5050,11 @@ class MetisMainWindow(QMainWindow):
         act_status = menu.addAction("📊 Diagnóstico & Status dos Serviços...")
         act_status.triggered.connect(self.show_status_dialog)
 
+        menu.addSeparator()
+
+        act_restore = menu.addAction("🔄 Restaurar Servidores Removidos...")
+        act_restore.triggered.connect(self.show_restore_server_dialog)
+
         self._exec_menu_aligned(menu, self.btn_oracle_settings)
 
     def show_provider_options_menu(self, btn: QPushButton, provider_key: str):
@@ -4127,6 +5070,10 @@ class MetisMainWindow(QMainWindow):
             menu.addSeparator()
             act_keys = menu.addAction("🔑 Configurar Chaves de API...")
             act_keys.triggered.connect(self.show_apis_dialog)
+
+        menu.addSeparator()
+        act_del = menu.addAction("🗑️ Excluir Servidor Definitivamente")
+        act_del.triggered.connect(lambda: self.delete_builtin_server(provider_key))
 
         self._exec_menu_aligned(menu, btn)
 
@@ -4147,7 +5094,7 @@ class MetisMainWindow(QMainWindow):
         act_edit = menu.addAction("✏️ Editar Configurações do Servidor...")
         act_edit.triggered.connect(lambda: self.prompt_edit_custom_server(srv))
 
-        act_del = menu.addAction("🗑️ Excluir Servidor da Lista")
+        act_del = menu.addAction("🗑️ Excluir Servidor Definitivamente")
         act_del.triggered.connect(lambda: self.delete_custom_server(srv_id))
 
         self._exec_menu_aligned(menu, btn)
@@ -4335,14 +5282,12 @@ class MetisMainWindow(QMainWindow):
             if cmd_direto:
                 self.mover_para_canto_superior_direito()
                 self.add_chat_bubble("user", f"/executar {cmd_pedido}")
-                from agente.services import tools_defs
-                tools_defs.AUTO_APPROVE_MODE = True
-                saida = tools_defs.executar_comando(cmd_direto)
-                resposta_formatada = f"⚡ **Comando Executado:** `{cmd_direto}`\n\n> 💡 **Resultado:** {saida}"
-                self.add_chat_bubble("assistant", resposta_formatada)
-                self.history_manager.adicionar_mensagem("user", f"/executar {cmd_pedido}")
-                self.history_manager.adicionar_mensagem("assistant", resposta_formatada)
-                self.refresh_telemetry()
+                
+                # Executa em thread separada para não congelar a UI
+                self._cmd_worker = CommandWorker(cmd_direto)
+                self._cmd_worker.finished.connect(self._on_command_finished)
+                self._cmd_worker.error_occurred.connect(self._on_command_error)
+                self._cmd_worker.start()
                 return
             else:
                 prompt_exec = (
@@ -4368,6 +5313,14 @@ class MetisMainWindow(QMainWindow):
 
         if l_text in ("/api", "/apis", "/chaves", "/key", "/keys"):
             self.show_apis_dialog()
+            return
+
+        if l_text in ("/opcoes", "/opcao", "/opção", "/opções", "/avancado", "/avançado", "/agent"):
+            self.show_agent_options_dialog()
+            return
+
+        if l_text in ("/restaurar", "/restore", "/reativar"):
+            self.show_restore_server_dialog()
             return
 
         if l_text in ("/ajuda", "/help"):
@@ -4556,6 +5509,13 @@ class MetisMainWindow(QMainWindow):
 
         ai_bubble, lbl_text, ai_b_layout = self.add_chat_bubble("assistant", "<span style='color: #94a3b8; font-style: italic;'>● Pensando...</span>")
 
+        # Checklist visual de execução de tarefas do agente
+        checklist_widget = None
+        if getattr(config, "AGENT_VISUAL_CHECKLIST", True):
+            checklist_widget = AgentChecklistWidget(ai_bubble)
+            checklist_widget.setVisible(False)
+            ai_b_layout.insertWidget(1, checklist_widget)
+
         # Mostra botão de interromper
         self.btn_stop.setVisible(True)
 
@@ -4587,11 +5547,32 @@ class MetisMainWindow(QMainWindow):
         timer_live.start(100)
 
         full_text = [""]
+        pending_text = [""]
+        render_timer = QTimer(self)
+        render_timer.setSingleShot(True)
+        render_timer.setInterval(75)  # ~13 FPS throttle for rendering
+        
+        def _flush_render():
+            if pending_text[0]:
+                self._set_bubble_content(lbl_text, pending_text[0])
+                self.scroll_chat_to_bottom()
+                pending_text[0] = ""
+        
+        render_timer.timeout.connect(_flush_render)
+
+        self._current_timer_live = timer_live
+        self._current_render_timer = render_timer
+        self._current_lbl_text = lbl_text
+        self._current_full_text = full_text
+        self._current_ai_bubble = ai_bubble
+        self._current_start_time = start_time
+        
         def on_chunk(chunk):
             try:
                 full_text[0] += chunk
-                self._set_bubble_content(lbl_text, full_text[0])
-                self.scroll_chat_to_bottom()
+                pending_text[0] = full_text[0]
+                if not render_timer.isActive():
+                    render_timer.start()
             except Exception as e:
                 logger.error(f"Erro em on_chunk: {e}")
 
@@ -4601,9 +5582,29 @@ class MetisMainWindow(QMainWindow):
             except Exception as e:
                 logger.error(f"Erro em on_search_started: {e}")
 
+        def on_tool_started(data):
+            try:
+                if checklist_widget:
+                    checklist_widget.setVisible(True)
+                    checklist_widget.add_or_update_started(data)
+                    self.scroll_chat_to_bottom()
+            except Exception as e:
+                logger.error(f"Erro em on_tool_started: {e}")
+
+        def on_tool_finished(data):
+            try:
+                if checklist_widget:
+                    checklist_widget.setVisible(True)
+                    checklist_widget.add_or_update_finished(data)
+                    self.scroll_chat_to_bottom()
+            except Exception as e:
+                logger.error(f"Erro em on_tool_finished: {e}")
+
         def on_finished(final_resp):
             try:
                 timer_live.stop()
+                render_timer.stop()
+                _flush_render()
                 elapsed = time.monotonic() - start_time
                 if hasattr(ai_bubble, "_lbl_timer") and ai_bubble._lbl_timer:
                     ai_bubble._lbl_timer.setText(f"⏱️ {elapsed:.2f}s")
@@ -4638,6 +5639,8 @@ class MetisMainWindow(QMainWindow):
 
         self.active_worker.chunk_received.connect(on_chunk)
         self.active_worker.search_started.connect(on_search_started)
+        self.active_worker.tool_started.connect(on_tool_started)
+        self.active_worker.tool_finished.connect(on_tool_finished)
         self.active_worker.finished_response.connect(on_finished)
         self.active_worker.error_occurred.connect(on_error)
         self.active_worker.start()
@@ -4663,9 +5666,78 @@ class MetisMainWindow(QMainWindow):
             ))
 
     def stop_ai_generation(self):
-        if self.active_worker and self.active_worker.isRunning():
-            self.active_worker.cancel()
+        worker = self.active_worker
+        self.active_worker = None
+
+        if worker and worker.isRunning():
+            try:
+                worker.chunk_received.disconnect()
+            except Exception:
+                pass
+            try:
+                worker.finished_response.disconnect()
+            except Exception:
+                pass
+            try:
+                worker.error_occurred.disconnect()
+            except Exception:
+                pass
+            try:
+                worker.tool_started.disconnect()
+            except Exception:
+                pass
+            try:
+                worker.tool_finished.disconnect()
+            except Exception:
+                pass
+
+            worker.cancel()
             self.btn_stop.setVisible(False)
+
+            # 1. Interrompe timers de atualização imediatamente
+            if hasattr(self, "_current_timer_live") and self._current_timer_live:
+                try:
+                    self._current_timer_live.stop()
+                except Exception:
+                    pass
+            if hasattr(self, "_current_render_timer") and self._current_render_timer:
+                try:
+                    self._current_render_timer.stop()
+                except Exception:
+                    pass
+
+            # 2. Atualiza o balão de resposta instantaneamente no mesmo milissegundo
+            if hasattr(self, "_current_lbl_text") and self._current_lbl_text:
+                try:
+                    current_txt = ""
+                    if hasattr(self, "_current_full_text") and self._current_full_text:
+                        current_txt = self._current_full_text[0]
+                    if not current_txt.strip():
+                        current_txt = "[Geração interrompida pelo usuário]"
+                    elif "[Geração interrompida" not in current_txt:
+                        current_txt += "\n\n[Geração interrompida pelo usuário]"
+                    self._set_bubble_content(self._current_lbl_text, current_txt)
+                except Exception:
+                    pass
+
+            # 3. Atualiza o badge do tempo para parado
+            if hasattr(self, "_current_ai_bubble") and self._current_ai_bubble:
+                try:
+                    if hasattr(self._current_ai_bubble, "_lbl_timer") and self._current_ai_bubble._lbl_timer:
+                        if hasattr(self, "_current_start_time"):
+                            elapsed = time.monotonic() - self._current_start_time
+                            self._current_ai_bubble._lbl_timer.setText(f"⏹️ {elapsed:.1f}s")
+                            self._current_ai_bubble._lbl_timer.setStyleSheet("color: #ef4444; background: transparent; font-size: 8pt;")
+                except Exception:
+                    pass
+
+            self.scroll_chat_to_bottom()
+
+            # 4. Devolve o foco imediato para o campo de digitação
+            if hasattr(self, "chat_input") and self.chat_input:
+                self.chat_input.setEnabled(True)
+                self.chat_input.setFocus()
+
         if self.query_queue:
             self.query_queue.clear()
 
@@ -5009,9 +6081,20 @@ class MetisMainWindow(QMainWindow):
 
     def on_apis_updated(self):
         self.refresh_telemetry()
-        if self.stack.currentIndex() == 3:
-            self.rebuild_oracle_buttons()
+        self.rebuild_oracle_buttons()
+        try:
+            self.carregar_servico_padrao()
+        except Exception:
+            pass
         QMessageBox.information(self, "Metis", "Chaves de API atualizadas e salvas com sucesso no .env!")
+
+    def show_agent_options_dialog(self):
+        dlg = ModernAgentOptionsDialog(self)
+        dlg.options_saved.connect(self.on_agent_options_updated)
+        dlg.exec()
+
+    def on_agent_options_updated(self):
+        self.refresh_telemetry()
 
     def show_help_dialog(self):
         dlg = ModernHelpDialog(self)

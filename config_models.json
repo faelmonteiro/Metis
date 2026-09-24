@@ -1,100 +1,93 @@
 {
+  "active_model": "inclusionai/ling-3.0-flash-fin:free",
+  "active_provider": "openrouter",
   "builtin_models": {
-    "Groq": [
-      "openai/gpt-oss-120b",
-      "qwen/qwen3.8-27b"
-    ],
-    "Gemini": [
-      "gemini-2.0-flash",
-      "gemini-1.5-flash",
-      "gemini-1.5-pro",
-      "gemini-2.0-flash-lite-preview-02-05"
-    ],
-    "NVIDIA": [
-      "meta/llama-3.2-11b-vision-instruct",
-      "meta/llama-3.2-90b-vision-instruct"
-    ],
     "G4F": [
       "gpt-4o-mini",
-      "gpt-4o",
-      "deepseek-r1",
-      "llama-3.3-70b",
-      "qwen-2.5-coder-32b"
-    ],
-    "OpenRouter": [
-      "poolside/laguna-s-2.1:free",
-      "liquid/lfm-2.5-2.6b:free",
-      "inclusionai/ling-3.0-flash-fin:free",
-      "minimax/minimax-m3:free"
+      "gpt-4o"
     ],
     "Ollama": [
-      "llama3.2-vision:11b",
-      "qwen3.5:9b",
       "qwen3.5:4b",
+      "qwen3.5:9b",
+      "deepseek-r1:7b",
       "llama3.2:3b",
-      "qwen2.5-coder:7b"
-    ],
-    "openrouter": []
+      "qwen2.5-coder:7b",
+      "llama3.2-vision:11b"
+    ]
   },
-  "removed_models": {
-    "Groq": [
-      "llama-3.1-8b-instant",
-      "mixtral-8x7b-32768",
-      "deepseek-r1-distill-llama-70b"
-    ],
-    "Gemini": [],
-    "NVIDIA": [
-      "meta/llama-3.3-70b-instruct",
-      "nvidia/llama-3.1-nemotron-70b-instruct"
-    ],
-    "G4F": [
-      "claude-3-5-sonnet",
-      "gemini-2.0-flash"
-    ],
-    "OpenRouter": [
-      "openrouter/auto",
-      "openai/gpt-oss-20b:free",
-      "google/gemma-4-31b-it:free",
-      "cohere/north-mini-code:free",
-      "z-ai/glm-5.2:free",
-      "stealth/ox-alpha"
-    ],
-    "Ollama": []
-  },
-  "removed_servers": [],
   "custom_servers": [
     {
       "id": "openrouter",
       "nome": "OpenRouter",
-      "base_url": "https://openrouter.ai/api/v1/chat/completions",
-      "modelo_atual": "minimax/minimax-m3:free",
+      "base_url": "https://openrouter.ai/api/v1",
+      "api_key_env": "OPENROUTER_API_KEY",
+      "api_key": "",
+      "modelo_atual": "inclusionai/ling-3.0-flash-fin:free",
       "modelos": [
         "poolside/laguna-s-2.1:free",
-        "liquid/lfm-2.5-2.6b:free",
         "inclusionai/ling-3.0-flash-fin:free",
-        "minimax/minimax-m3:free"
-      ],
-      "api_key_env": "OPENROUTER_API_KEY"
+        "liquid/lfm-2.5-2.6b:free",
+        "z-ai/glm-5.2:free",
+        "openrouter/free"
+      ]
+    },
+    {
+      "id": "groq",
+      "nome": "Groq",
+      "base_url": "https://api.groq.com/openai/v1/chat/completions",
+      "api_key_env": "GROQ_API_KEY",
+      "api_key": "",
+      "modelo_atual": "llama-3.3-70b-versatile",
+      "modelos": [
+        "openai/gpt-oss-120b",
+        "llama-3.3-70b-versatile",
+        "qwen/qwen3.8-27b"
+      ]
+    },
+    {
+      "id": "nvidia",
+      "nome": "Nvidia",
+      "base_url": "https://integrate.api.nvidia.com/v1/chat/completions",
+      "api_key_env": "NVIDIA_API_KEY",
+      "api_key": "",
+      "modelo_atual": "moonshotai/kimi-k3",
+      "modelos": [
+        "moonshotai/kimi-k3",
+        "meta/llama-3.2-11b-vision-instruct",
+        "nvidia/nemotron-3.5-lightning-30b-a3b",
+        "deepseek-ai/deepseek-v4.1-flash"
+      ]
     }
   ],
   "preferences": {
+    "active_model": "meta/llama-3.2-11b-vision-instruct",
+    "active_models": {
+      "default_provider": "nvidia",
+      "g4f": "gpt-4o",
+      "groq": "llama-3.3-70b-versatile",
+      "nvidia": "moonshotai/kimi-k3",
+      "ollama": "llama3.2:3b",
+      "openrouter": "inclusionai/ling-3.0-flash-fin:free"
+    },
+    "copy_btn": true,
+    "font_family": "default",
+    "font_size": "medium",
+    "is_sidebar_collapsed": false,
+    "last_active_model": "inclusionai/ling-3.0-flash-fin:free",
+    "last_active_provider": "openrouter",
+    "neon_glow": true,
+    "theme_id": "metis_oracle",
     "web_search_enabled": false,
-    "last_active_provider": "gemini",
-    "last_active_model": "gemini-2.0-flash",
+    "window_opacity": 90,
     "window_size": [
       860,
       550
-    ],
-    "theme_id": "metis_oracle",
-    "window_opacity": 60,
-    "font_size": "medium",
-    "font_family": "default",
-    "neon_glow": false,
-    "copy_btn_enabled": true
+    ]
   },
-  "user_settings": {
-    "is_sidebar_collapsed": true
-  },
-  "active_provider": "groq",
-  "active_model": "qwen/qwen3.8-27b"
+  "removed_models": {},
+  "removed_servers": [
+    "gemini",
+    "openai"
+  ],
+  "schema_version": 2
 }

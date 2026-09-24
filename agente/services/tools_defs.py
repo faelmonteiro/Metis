@@ -424,7 +424,8 @@ def executar_comando(comando: str, diretorio: str = ".") -> str:
         return saida
 
     except subprocess.TimeoutExpired:
-        return "Erro: O comando excedeu o tempo limite de 20 segundos e foi interrompido."
+        timeout_s = int(getattr(config, "COMMAND_TIMEOUT", 60))
+        return f"Erro: O comando excedeu o tempo limite de {timeout_s} segundos e foi interrompido."
     except Exception as e:
         return f"Erro ao executar comando: {e}"
 

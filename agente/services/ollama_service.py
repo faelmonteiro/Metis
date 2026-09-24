@@ -125,6 +125,7 @@ def _sanitizar_json_tools_do_texto(texto: str) -> str:
 
 class OllamaService(BaseService):
     def __init__(self, model: str = None):
+        super().__init__()
         self.model = model or config.OLLAMA_MODEL
 
     @property
@@ -132,9 +133,10 @@ class OllamaService(BaseService):
         return f"OLLAMA ({self.model})"
 
     def gerar_resposta_stream(self, mensagens: list):
-        return gerar_resposta_stream(mensagens, model=self.model)
+        self._aborted = False
+        return gerar_resposta_stream(mensagens, model=self.model, service=self)
 
-def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: int = 5, model: str = None):
+def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: int = 5, model: str = None, service=None):
     from agente.services.tools_defs import OPENAI_TOOLS_DECLARATION
     import base64
 
@@ -234,17 +236,23 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
 
     try:
         from agente.services.http_client import get_http_client
-        client = get_http_client(timeout=timeout)
+        client = get_http_client()
         with client.stream(
             "POST",
             f"{config.OLLAMA_HOST}/api/chat",
-            json=payload
+            json=payload,
+            timeout=timeout
         ) as res:
-            if res.status_code != 200:
-                body = res.read().decode("utf-8")
-                raise RuntimeError(f"Erro do Ollama: {body}")
+            if service:
+                service._active_stream = res
+            try:
+                if res.status_code != 200:
+                    body = res.read().decode("utf-8")
+                    raise RuntimeError(f"Erro do Ollama: {body}")
 
-            for line in res.iter_lines():
+                for line in res.iter_lines():
+                    if service and getattr(service, "_aborted", False):
+                        break
                 if line:
                     try:
                         data = json.loads(line)
@@ -274,7 +282,12 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
                                     })
                     except json.JSONDecodeError:
                         pass
-    except httpx.RequestError as e:
+            finally:
+                if service:
+                    service._active_stream = None
+    except (httpx.RequestError, Exception) as e:
+        if service and getattr(service, "_aborted", False):
+            return
         raise RuntimeError(f"Não foi possível conectar ao Ollama: {e}")
 
     # Flush final do buffer em modo CONSULTA (com sanitização)

@@ -15,6 +15,7 @@ ENV PYTHONUNBUFFERED=1
 COPY --from=builder /install /usr/local
 
 COPY app.py .
+COPY config_models.json .
 
 COPY agente ./agente
 

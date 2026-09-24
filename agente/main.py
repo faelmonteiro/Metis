@@ -7,7 +7,8 @@ from agente.services.base import BaseService
 from agente.ui.help import exibir_ajuda
 
 def obter_servico_padrao() -> BaseService:
-    prov = (getattr(config, "DEFAULT_PROVIDER", "") or "ollama").strip().lower()
+    prov_raw = (getattr(config, "DEFAULT_PROVIDER", "") or "ollama").strip().lower()
+    prov = prov_raw.removeprefix("custom:").strip()
     if prov == "gemini" and getattr(config, "GEMINI_API_KEY", ""):
         from agente.services.gemini_service import GeminiService
         return GeminiService()
@@ -23,7 +24,9 @@ def obter_servico_padrao() -> BaseService:
     else:
         from agente.providers_manager import obter_servidores_customizados
         for s in obter_servidores_customizados():
-            if s.get("id") == prov or s.get("nome", "").lower() == prov:
+            s_id = s.get("id", "").lower()
+            s_name = s.get("nome", "").lower()
+            if prov in (s_id, s_name) or prov_raw in (s_id, s_name):
                 from agente.services.custom_openai_service import CustomOpenAIService
                 return CustomOpenAIService(s)
         from agente.services.ollama_service import OllamaService
@@ -51,6 +54,9 @@ def main():
             else:
                 print("Erro: --web requer uma pergunta. Ex: python app.py --web Qual a capital do Brasil?")
                 sys.exit(1)
+        elif args[0] in ["--version", "-v"]:
+            print("Metis v2.0")
+            return
         elif args[0] in ["--help", "-h"]:
             exibir_ajuda()
         else:

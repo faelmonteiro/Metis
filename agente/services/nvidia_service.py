@@ -32,7 +32,7 @@ def _build_request(mensagens: list, stream: bool = False, model: str = None) -> 
             logger.warning(f"NVIDIA API não suporta tool calling — mensagem '{role}' descartada")
 
     payload = {
-        "model": model or getattr(config, "NVIDIA_MODEL", "meta/llama-3.1-70b-instruct"),
+        "model": model or getattr(config, "NVIDIA_MODEL", "moonshotai/kimi-k3"),
         "messages": clean_messages,
         "stream": stream,
         "max_tokens": getattr(config, "MAX_OUTPUT_TOKENS", config.NVIDIA_MAX_TOKENS),
@@ -53,20 +53,25 @@ def _handle_error(res):
 
 
 
-def gerar_resposta_stream(mensagens: list, model: str = None):
+def gerar_resposta_stream(mensagens: list, model: str = None, service=None):
     """Gera resposta via streaming SSE da NVIDIA API (formato OpenAI)."""
-    model_name = model or getattr(config, "NVIDIA_MODEL", "meta/llama-3.1-70b-instruct")
+    model_name = model or getattr(config, "NVIDIA_MODEL", "moonshotai/kimi-k3")
     headers, payload = _build_request(mensagens, stream=True, model=model_name)
 
     timeout = httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)
 
     try:
         from agente.services.http_client import get_http_client
-        client = get_http_client(timeout=timeout)
-        with client.stream("POST", API_URL, headers=headers, json=payload) as res:
+        client = get_http_client()
+        with client.stream("POST", API_URL, headers=headers, json=payload, timeout=timeout) as res:
+            if service:
+                service._active_stream = res
+            try:
                 _handle_error(res)
 
                 for line in res.iter_lines():
+                    if service and getattr(service, "_aborted", False):
+                        break
                     if not line.startswith("data: "):
                         continue
                     if line.strip() == "data: [DONE]":
@@ -78,16 +83,23 @@ def gerar_resposta_stream(mensagens: list, model: str = None):
                             yield content
                     except (json.JSONDecodeError, KeyError, IndexError):
                         pass
-    except httpx.RequestError as e:
+            finally:
+                if service:
+                    service._active_stream = None
+    except (httpx.RequestError, Exception) as e:
+        if service and getattr(service, "_aborted", False):
+            return
         raise RuntimeError(f"Erro de conexão com NVIDIA API: {e}")
 
 class NvidiaService(BaseService):
     def __init__(self, model: str = None):
-        self.model = model or getattr(config, "NVIDIA_MODEL", "meta/llama-3.1-70b-instruct")
+        super().__init__()
+        self.model = model or getattr(config, "NVIDIA_MODEL", "moonshotai/kimi-k3")
 
     @property
     def nome_provedor(self) -> str:
         return f"NVIDIA ({self.model})"
 
     def gerar_resposta_stream(self, mensagens: list):
-        return gerar_resposta_stream(mensagens, model=self.model)
+        self._aborted = False
+        return gerar_resposta_stream(mensagens, model=self.model, service=self)

@@ -32,13 +32,10 @@ from PyQt6.QtWidgets import (
     QTextBrowser,
     QLabel,
     QFrame,
-    QComboBox,
     QFileDialog,
     QStackedWidget,
     QListWidget,
     QListWidgetItem,
-    QInputDialog,
-    QMessageBox,
     QPlainTextEdit,
     QSizePolicy,
     QAbstractItemView,
@@ -48,6 +45,12 @@ from PyQt6.QtWidgets import (
 _vision_dir = str(Path(__file__).resolve().parent)
 if _vision_dir not in sys.path:
     sys.path.insert(0, _vision_dir)
+
+# Adiciona caminho do Metis para importar utilitários compartilhados
+metis_root = Path(__file__).parent.parent
+if str(metis_root) not in sys.path:
+    sys.path.insert(0, str(metis_root))
+from agente.ui.clipboard import extrair_blocos, _extrair_comando_e_comentario
 
 import config
 import model_manager
@@ -1370,6 +1373,30 @@ class ScreenAIOverlay(QWidget):
         if not getattr(self, 'last_failed_prompt', None):
             self.status_label.setText("✓ Pronto para análise.")
 
+    def sync_with_metis(self):
+        """Sincroniza servidores e modelos com o Metis e Ollama local sem fechar a interface."""
+        try:
+            res = model_manager.sync_with_metis()
+            prov_count = res.get("providers_count", 0)
+            srv_count = res.get("custom_servers_count", 0)
+            ollama_str = " (incluindo Ollama local)" if res.get("ollama_synced") else ""
+
+            # Recarregar categorias e menu de modelos
+            self.load_settings_categories()
+            self.refresh_model_menu()
+
+            # Feedback no status
+            feedback_msg = f"✓ Sincronizado com o Metis: {prov_count} provedores, {srv_count} servidores{ollama_str}."
+            self.status_label.setText(feedback_msg)
+
+            # Feedback temporário no seletor de modelos (ao lado do fullscreen)
+            if hasattr(self, 'model_btn'):
+                current_label = self.model_btn.text()
+                self.model_btn.setText("✅ Sincronizado!")
+                QTimer.singleShot(1800, lambda: self.model_btn.setText(current_label) if hasattr(self, 'model_btn') else None)
+        except Exception as e:
+            self.status_label.setText(f"❌ Erro ao sincronizar: {e}")
+
     def load_settings_categories(self):
         self.settings_provider_list.clear()
         providers = model_manager.get_providers()
@@ -1675,6 +1702,9 @@ class ScreenAIOverlay(QWidget):
                     )
 
         menu.addSeparator()
+        sync_act = menu.addAction("🔄  Sincronizar com o Metis")
+        sync_act.setToolTip("Sincroniza modelos e servidores com o Metis e Ollama local")
+        sync_act.triggered.connect(self.sync_with_metis)
         settings_act = menu.addAction("⚙️  Gerenciar Modelos e Provedores...")
         settings_act.triggered.connect(self.open_settings)
         menu.blockSignals(False)
@@ -1702,10 +1732,6 @@ class ScreenAIOverlay(QWidget):
             self.status_label.setText(f"⭐ Ativo: {prov_name} • {short_mod} • Pressione Enter para reenviar ao novo modelo")
         else:
             self.status_label.setText(f"✓ Modelo ativo: {prov_name} • {short_mod}")
-
-    def on_model_changed(self, index: int = 0):
-        """Método de retrocompatibilidade."""
-        pass
 
     def on_submit_query(self):
         query = self.search_input.text().strip()
@@ -1839,12 +1865,17 @@ class ScreenAIOverlay(QWidget):
         self.search_input.setFocus()
 
     def extract_commands_from_text(self, text: str) -> List[str]:
-        code_blocks = re.findall(r'```(?:bash|sh|shell|zsh)?\s*\n(.*?)\n```', text, re.DOTALL)
+        """Extrai comandos executáveis de blocos de código usando utilitário compartilhado."""
+        blocos_shell, blocos_codigo = extrair_blocos(text)
         commands = []
-        for block in code_blocks:
-            lines = [line.strip() for line in block.splitlines() if line.strip() and not line.strip().startswith("#")]
-            if lines:
-                commands.extend(lines)
+        for bloco in blocos_shell:
+            for linha in bloco.strip().split("\n"):
+                linha_limpa = linha.strip()
+                if not linha_limpa:
+                    continue
+                cmd, _ = _extrair_comando_e_comentario(linha_limpa)
+                if cmd:
+                    commands.append(cmd)
         return commands
 
     def _reset_copy_cmd_btn(self):

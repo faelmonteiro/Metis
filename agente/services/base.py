@@ -1,11 +1,25 @@
 import json
 import logging
 from abc import ABC, abstractmethod
-from typing import Iterator, Dict, Any, Tuple, Generator
+from typing import Iterator, Dict, Any, Generator
 
 logger = logging.getLogger(__name__)
 
 class BaseService(ABC):
+    def __init__(self):
+        self._active_stream = None
+        self._aborted = False
+
+    def abort(self):
+        """Interrompe qualquer conexão HTTP ou stream ativo imediatamente."""
+        self._aborted = True
+        if hasattr(self, "_active_stream") and self._active_stream is not None:
+            try:
+                self._active_stream.close()
+            except Exception:
+                pass
+            self._active_stream = None
+
     @abstractmethod
     def gerar_resposta_stream(self, mensagens: list) -> Iterator[str]:
         """Gera a resposta da LLM via streaming, fazendo yield de chunks de string."""
@@ -76,23 +90,33 @@ def process_tool_calls_map(
         if not name:
             continue
 
-        try:
-            args = json.loads(tc_data["args_str"]) if tc_data.get("args_str") else {}
-        except Exception:
-            args = {}
+        args = {}
+        json_error = None
+        if tc_data.get("args_str"):
+            try:
+                args = json.loads(tc_data["args_str"])
+            except Exception as e:
+                json_error = str(e)
+                logger.warning(f"Erro ao decodificar JSON dos argumentos de {name}: {e}")
 
         call_id = tc_data.get("id") or f"call_{tc_idx}_{iteration}"
         func_call = {
             "id": call_id,
             "name": name,
-            "args": args
+            "args": args if json_error is None else {}
         }
         mensagens.append({
             "role": "functionCall",
             "functionCall": func_call
         })
 
-        result = executar_tool(name, args)
+        if json_error:
+            result = (
+                f"Erro: os argumentos enviados para a ferramenta '{name}' contêm JSON inválido ({json_error}). "
+                f"Texto recebido: {tc_data.get('args_str')}. Por favor, envie novamente com argumentos formatados em JSON válido."
+            )
+        else:
+            result = executar_tool(name, args)
 
         mensagens.append({
             "role": "functionResponse",

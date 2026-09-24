@@ -43,9 +43,9 @@ def build_system_prompt(provedor: str = "", compacto: bool = False) -> str:
     if compacto or getattr(config, "COMPACT_PROMPT", False):
         return _build_prompt_compacto(so, usuario, cwd, home)
 
-    # Para Ollama ou modelos locais pequenos: prompt ultra-enxuto (~10 tokens) para máxima velocidade
+    # Para Ollama ou modelos locais pequenos: usa prompt compacto para máxima velocidade
     if "ollama" in prov_lower or _is_small_model(provedor):
-        return "Você é o assistente Metis. Responda sempre em português brasileiro de forma concisa e direta."
+        return _build_prompt_compacto(so, usuario, cwd, home)
 
     return _build_prompt_completo(so, usuario, cwd, home)
 

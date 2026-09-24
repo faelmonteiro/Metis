@@ -14,8 +14,7 @@ _client_lock = threading.Lock()
 def get_http_client(timeout: httpx.Timeout = None) -> httpx.Client:
     """
     Retorna a instância compartilhada de httpx.Client com Keep-Alive ativo e thread-safe.
-    Se um timeout customizado for especificado, cria um cliente dedicado para evitar
-    efeitos colaterais em outras partes da aplicação.
+    O parâmetro timeout é ignorado para o cliente compartilhado - use timeout por requisição.
     """
     global _client_instance
     limits = httpx.Limits(
@@ -25,13 +24,6 @@ def get_http_client(timeout: httpx.Timeout = None) -> httpx.Client:
     )
     read_sec = float(getattr(config, "API_TIMEOUT", 120))
     default_timeout = httpx.Timeout(connect=10.0, read=read_sec, write=15.0, pool=10.0)
-
-    if timeout is not None and timeout != default_timeout:
-        return httpx.Client(
-            timeout=timeout,
-            limits=limits,
-            follow_redirects=True
-        )
 
     with _client_lock:
         if _client_instance is None or _client_instance.is_closed:

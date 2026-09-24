@@ -122,8 +122,8 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
 
     try:
         from agente.services.http_client import get_http_client
-        client = get_http_client(timeout=timeout)
-        with client.stream("POST", url, headers=headers, json=payload) as res:
+        client = get_http_client()
+        with client.stream("POST", url, headers=headers, json=payload, timeout=timeout) as res:
                 _handle_error(res)
 
                 for line in res.iter_lines():

@@ -54,6 +54,7 @@ SEARXNG_URL = (os.getenv("SEARXNG_URL") or "").strip()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
 NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "").strip()
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "").strip()
 
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash").strip()
 GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b").strip()
@@ -99,6 +100,9 @@ HYPRLAND_ENABLED = os.getenv("HYPRLAND_INSTANCE_SIGNATURE", "") != ""
 
 _command_tool_raw = os.getenv("ENABLE_COMMAND_TOOL", "0").strip().lower()
 ENABLE_COMMAND_TOOL = _command_tool_raw in {"1", "true", "yes", "on"}
+
+_visual_checklist_raw = os.getenv("AGENT_VISUAL_CHECKLIST", "1").strip().lower()
+AGENT_VISUAL_CHECKLIST = _visual_checklist_raw in {"1", "true", "yes", "on"}
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "WARNING").strip().upper()
 logging.basicConfig(

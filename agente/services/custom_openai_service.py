@@ -18,11 +18,26 @@ logger = logging.getLogger(__name__)
 
 class CustomOpenAIService(BaseService):
     def __init__(self, server_info: dict):
+        super().__init__()
         self.server_info = server_info
         self.nome = server_info.get("nome", "Custom API")
-        raw_base_url = server_info.get("base_url", "")
-        if "openrouter.ai" in raw_base_url.lower() and not raw_base_url.endswith("/api/v1/chat/completions"):
-            self.base_url = "https://openrouter.ai/api/v1/chat/completions"
+        raw_base_url = server_info.get("base_url", "").strip()
+        if "openrouter.ai" in raw_base_url.lower():
+            if not raw_base_url.endswith("/chat/completions"):
+                self.base_url = "https://openrouter.ai/api/v1/chat/completions"
+            else:
+                self.base_url = raw_base_url
+        elif "groq.com" in raw_base_url.lower():
+            if "console.groq.com" in raw_base_url.lower() or not raw_base_url.endswith("/chat/completions"):
+                self.base_url = "https://api.groq.com/openai/v1/chat/completions"
+            else:
+                self.base_url = raw_base_url
+        elif raw_base_url:
+            clean_url = raw_base_url.rstrip("/")
+            if not clean_url.endswith("/chat/completions"):
+                self.base_url = f"{clean_url}/chat/completions"
+            else:
+                self.base_url = clean_url
         else:
             self.base_url = raw_base_url
         self.modelo = server_info.get("modelo_atual", "")
@@ -140,9 +155,10 @@ class CustomOpenAIService(BaseService):
             "temperature": getattr(config, "CUSTOM_TEMPERATURE", getattr(config, "DEFAULT_TEMPERATURE", 0.7)),
         }
 
-        # Adiciona ferramentas caso habilitadas
+        # Adiciona ferramentas caso habilitadas (NVIDIA NIM não suporta tool calling nesse formato)
         try:
-            if OPENAI_TOOLS_DECLARATION:
+            is_nvidia = "nvidia" in self.base_url.lower() or "nvidia" in str(self.server_info.get("id", "")).lower()
+            if OPENAI_TOOLS_DECLARATION and not is_nvidia:
                 payload["tools"] = OPENAI_TOOLS_DECLARATION
                 payload["tool_choice"] = "auto"
         except Exception:
@@ -166,24 +182,43 @@ class CustomOpenAIService(BaseService):
             raise RuntimeError(f"{self.nome} API ({res.status_code}): {msg}")
 
     def gerar_resposta_stream(self, mensagens: list, iteration: int = 0, max_iterations: int = 5) -> Iterator[str]:
+        self._aborted = False
         headers, payload = self._build_request(mensagens, stream=True)
 
         from agente.services.http_client import get_http_client
         retries = 3
         for attempt in range(retries):
+            if self._aborted:
+                return
             tool_calls_map = {}
             try:
                 client = get_http_client()
                 with client.stream("POST", self.base_url, headers=headers, json=payload) as res:
-                    if res.status_code == 429 and attempt < retries - 1:
-                        import time
-                        time.sleep(3.0)
-                        continue
-                    self._handle_error(res)
+                    self._active_stream = res
+                    try:
+                        if res.status_code == 429 and attempt < retries - 1:
+                            import time
+                            time.sleep(3.0)
+                            continue
+                        if res.status_code in (400, 404) and "tools" in payload:
+                            try:
+                                body = res.read().decode("utf-8")
+                                if "tool" in body.lower():
+                                    logger.info(f"Modelo {self.modelo} não suporta ferramentas. Reenviando sem tools.")
+                                    payload.pop("tools", None)
+                                    payload.pop("tool_choice", None)
+                                    continue
+                            except Exception:
+                                pass
+                        self._handle_error(res)
 
-                    yield from parse_openai_sse_stream(res.iter_lines(), tool_calls_map)
+                        yield from parse_openai_sse_stream(res.iter_lines(), tool_calls_map)
+                    finally:
+                        self._active_stream = None
                 break
-            except httpx.RequestError as e:
+            except (httpx.RequestError, Exception) as e:
+                if self._aborted:
+                    return
                 if attempt == retries - 1:
                     raise RuntimeError(f"Erro de conexão com {self.nome} ({self.base_url}): {e}")
                 import time

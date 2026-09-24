@@ -7,6 +7,7 @@ import base64
 import json
 import os
 import sys
+from pathlib import Path
 from typing import Any, Generator, Optional
 import httpx
 import config
@@ -14,6 +15,12 @@ import config
 # Timeout padrão para requisições HTTP (com 120s de leitura para modelos vision)
 _DEFAULT_TIMEOUT = httpx.Timeout(connect=10.0, read=120.0, write=30.0, pool=10.0)
 DEFAULT_VISION_MAX_TOKENS = int(getattr(config, "MAX_VISION_TOKENS", 1500))
+
+# Adiciona caminho do Metis para importar base service
+metis_root = Path(__file__).parent.parent
+if str(metis_root) not in sys.path:
+    sys.path.insert(0, str(metis_root))
+from agente.services.base import parse_openai_sse_stream
 
 _vision_client: Optional[httpx.Client] = None
 
@@ -31,21 +38,11 @@ class VisionAIEngine:
 
     @staticmethod
     def _parse_openai_sse_stream(response: httpx.Response) -> Generator[str, None, None]:
-        """Parseia stream SSE no padrão OpenAI (data: {...}) e gera chunks de conteúdo."""
-        for line in response.iter_lines():
-            line = line.strip()
-            if not line or line == "data: [DONE]":
-                continue
-            if line.startswith("data: "):
-                try:
-                    chunk = json.loads(line[6:])
-                    choices = chunk.get("choices", [])
-                    if choices and "delta" in choices[0]:
-                        content = choices[0]["delta"].get("content", "")
-                        if content:
-                            yield content
-                except (json.JSONDecodeError, KeyError, IndexError) as e:
-                    print(f"[ai_engine] Erro ao parsear SSE: {e}", file=sys.stderr)
+        """Parseia stream SSE no padrão OpenAI usando a implementação compartilhada."""
+        # O parse_openai_sse_stream compartilhado espera um iterador de linhas e um dict para tool_calls
+        # Como Vision não usa tool_calls, passamos um dict vazio
+        tool_calls_map: dict = {}
+        yield from parse_openai_sse_stream(response.iter_lines(), tool_calls_map)
 
     def chat_multiturn_stream(
         self,
@@ -98,7 +95,7 @@ class VisionAIEngine:
         elif prov == "groq":
             base_url = "https://api.groq.com/openai/v1"
             api_key = config.GROQ_API_KEY
-            model = self.model or "llama-3.3-70b-versatile"
+            model = self.model or "llama-3.2-11b-vision-preview"
         elif prov == "gemini" and config.GEMINI_API_KEY.startswith("AIzaSy"):
             try:
                 from google import genai

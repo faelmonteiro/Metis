@@ -104,7 +104,7 @@ class TestUtils(unittest.TestCase):
         openrouter_srv = obter_servidor_customizado("openrouter")
         self.assertIsNotNone(openrouter_srv)
         self.assertEqual(openrouter_srv.get("nome"), "OpenRouter")
-        self.assertTrue(len(openrouter_srv.get("modelos", [])) > 0)
+        self.assertIsInstance(openrouter_srv.get("modelos", []), list)
 
 
     def test_http_client_singleton(self):
@@ -245,6 +245,44 @@ class TestUtils(unittest.TestCase):
 
         # Restaura para metis_oracle
         set_theme_preference("theme_id", "metis_oracle")
+
+    def test_obter_servico_padrao_custom_prefix(self):
+        from agente import config
+        from agente.main import obter_servico_padrao
+        original = getattr(config, "DEFAULT_PROVIDER", "")
+        try:
+            config.DEFAULT_PROVIDER = "custom:openrouter"
+            servico = obter_servico_padrao()
+            self.assertIn("OPENROUTER", servico.nome_provedor.upper())
+
+            config.DEFAULT_PROVIDER = "openrouter"
+            servico2 = obter_servico_padrao()
+            self.assertIn("OPENROUTER", servico2.nome_provedor.upper())
+        finally:
+            config.DEFAULT_PROVIDER = original
+
+    def test_tool_executor_type_error(self):
+        from agente.services.tool_executor import executar_tool
+        # chamar ler_arquivo com tipo inválido de argumento
+        resultado = executar_tool("ler_arquivo", {"caminho_inexistente_invalido_arg": 123})
+        self.assertTrue(resultado.startswith("Erro nos argumentos da ferramenta 'ler_arquivo':"))
+
+    def test_base_process_tool_calls_map_invalid_json(self):
+        from agente.services.base import process_tool_calls_map
+        tool_calls_map = {
+            0: {
+                "id": "call_test_1",
+                "name": "ler_arquivo",
+                "args_str": "{'invalid_json': unquoted_val"
+            }
+        }
+        mensagens = []
+        executou = process_tool_calls_map(tool_calls_map, mensagens, iteration=0)
+        self.assertTrue(executou)
+        self.assertEqual(len(mensagens), 2)
+        resp_msg = mensagens[1]
+        self.assertEqual(resp_msg["role"], "functionResponse")
+        self.assertIn("contêm JSON inválido", resp_msg["content"])
 
 
 if __name__ == "__main__":

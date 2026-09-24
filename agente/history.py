@@ -22,7 +22,6 @@ class HistoryManager:
         self.dir_path.mkdir(parents=True, exist_ok=True)
         self.file_path = self.dir_path / f"{self.sessao}.json"
         self.historico = []
-        self.saved_model = ""
         self.carregar()
 
     def carregar(self):
@@ -35,13 +34,10 @@ class HistoryManager:
 
             if isinstance(dados, list):
                 self.historico = dados
-                self.saved_model = ""
             elif isinstance(dados, dict):
-                self.saved_model = str(dados.get("OLLAMA_MODEL", "")).strip()
                 self.historico = dados.get("historico", [])
             else:
                 self.historico = []
-                self.saved_model = ""
 
             self._validar_consistencia()
 
@@ -60,7 +56,6 @@ class HistoryManager:
     def salvar(self):
         try:
             dados = {
-                "OLLAMA_MODEL": config.OLLAMA_MODEL,
                 "historico": self.historico
             }
 

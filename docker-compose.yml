@@ -12,6 +12,7 @@ services:
     volumes:
       - ./agente:/app/agente
       - ./app.py:/app/app.py
+      - ./config_models.json:/app/config_models.json
       - ./historico:/app/historico
     network_mode: "host"
     stdin_open: true
