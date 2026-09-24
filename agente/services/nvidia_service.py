@@ -27,7 +27,7 @@ def _build_request(mensagens: list, stream: bool = False, model: str = None) -> 
     clean_messages = format_openai_messages(mensagens, descartar_tools=True, incluir_midia=False)
 
     payload = {
-        "model": model or getattr(config, "NVIDIA_MODEL", "moonshotai/kimi-k3"),
+        "model": model or config.NVIDIA_MODEL,
         "messages": clean_messages,
         "stream": stream,
         "max_tokens": getattr(config, "MAX_OUTPUT_TOKENS", config.NVIDIA_MAX_TOKENS),
@@ -50,7 +50,7 @@ def _handle_error(res):
 
 def gerar_resposta_stream(mensagens: list, model: str = None, service=None):
     """Gera resposta via streaming SSE da NVIDIA API (formato OpenAI)."""
-    model_name = model or getattr(config, "NVIDIA_MODEL", "moonshotai/kimi-k3")
+    model_name = model or config.NVIDIA_MODEL
     headers, payload = _build_request(mensagens, stream=True, model=model_name)
 
     timeout = httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0)
@@ -77,7 +77,7 @@ def gerar_resposta_stream(mensagens: list, model: str = None, service=None):
 class NvidiaService(BaseService):
     def __init__(self, model: str = None):
         super().__init__()
-        self.model = model or getattr(config, "NVIDIA_MODEL", "moonshotai/kimi-k3")
+        self.model = model or config.NVIDIA_MODEL
 
     @property
     def nome_provedor(self) -> str:

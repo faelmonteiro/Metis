@@ -216,7 +216,7 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
         "stream": True,
         "options": {
             "num_ctx": config.OLLAMA_NUM_CTX,
-            "num_thread": getattr(config, "OLLAMA_NUM_THREADS", 10),
+            "num_thread": config.OLLAMA_NUM_THREADS,
             "temperature": temp_efetiva
         }
     }
