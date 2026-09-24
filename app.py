@@ -1,5 +1,6 @@
 import logging
 logger = logging.getLogger(__name__)
+import atexit
 import os
 import sys
 from pathlib import Path
@@ -16,6 +17,8 @@ except ImportError as _silent_e:
     logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 
 from agente.main import main
+from agente.services.http_client import close_http_client
+atexit.register(close_http_client)
 
 if __name__ == "__main__":
     try:

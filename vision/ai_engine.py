@@ -13,6 +13,8 @@ import os
 import sys
 from pathlib import Path
 from typing import Any, Generator, Optional
+import atexit
+import threading
 import httpx
 from . import config
 
@@ -27,13 +29,31 @@ if str(metis_root) not in sys.path:
 from agente.services.base import parse_openai_sse_stream
 
 _vision_client: Optional[httpx.Client] = None
+_vision_client_lock = threading.Lock()
+
 
 def _get_vision_client() -> httpx.Client:
     global _vision_client
     if _vision_client is None or _vision_client.is_closed:
         limits = httpx.Limits(max_keepalive_connections=10, max_connections=25, keepalive_expiry=60.0)
-        _vision_client = httpx.Client(timeout=_DEFAULT_TIMEOUT, limits=limits, follow_redirects=True)
+        with _vision_client_lock:
+            if _vision_client is None or _vision_client.is_closed:
+                _vision_client = httpx.Client(timeout=_DEFAULT_TIMEOUT, limits=limits, follow_redirects=True)
     return _vision_client
+
+
+def close_vision_client():
+    global _vision_client
+    with _vision_client_lock:
+        if _vision_client is not None and not _vision_client.is_closed:
+            try:
+                _vision_client.close()
+            except Exception:
+                pass
+            _vision_client = None
+
+
+atexit.register(close_vision_client)
 
 class VisionAIEngine:
     def __init__(self, provider: Optional[str] = None, model: Optional[str] = None):
@@ -144,20 +164,20 @@ class VisionAIEngine:
                 "messages": ollama_messages
             }
             try:
-                with httpx.Client(timeout=_DEFAULT_TIMEOUT) as client:
-                    with client.stream("POST", url, json=payload) as response:
-                        if response.status_code != 200:
-                            yield f"⚠️ Erro no Ollama ({response.status_code}): Verifique se o modelo está baixado."
-                            return
-                        for line in response.iter_lines():
-                            if line:
-                                try:
-                                    data = json.loads(line)
-                                    content = data.get("message", {}).get("content", "")
-                                    if content:
-                                        yield content
-                                except Exception as _silent_e:
-                                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+                client = _get_vision_client()
+                with client.stream("POST", url, json=payload) as response:
+                    if response.status_code != 200:
+                        yield f"⚠️ Erro no Ollama ({response.status_code}): Verifique se o modelo está baixado."
+                        return
+                    for line in response.iter_lines():
+                        if line:
+                            try:
+                                data = json.loads(line)
+                                content = data.get("message", {}).get("content", "")
+                                if content:
+                                    yield content
+                            except Exception as _silent_e:
+                                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
                 return
             except Exception as e:
                 yield f"⚠️ Erro ao conectar ao Ollama: {str(e)}"
@@ -352,20 +372,20 @@ class VisionAIEngine:
                 ]
             }
             try:
-                with httpx.Client(timeout=_DEFAULT_TIMEOUT) as client:
-                    with client.stream("POST", url, json=payload) as response:
-                        if response.status_code != 200:
-                            yield f"⚠️ Erro no Ollama ({response.status_code}): Verifique se o modelo está baixado."
-                            return
-                        for line in response.iter_lines():
-                            if line:
-                                try:
-                                    data = json.loads(line)
-                                    content = data.get("message", {}).get("content", "")
-                                    if content:
-                                        yield content
-                                except Exception as _silent_e:
-                                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+                client = _get_vision_client()
+                with client.stream("POST", url, json=payload) as response:
+                    if response.status_code != 200:
+                        yield f"⚠️ Erro no Ollama ({response.status_code}): Verifique se o modelo está baixado."
+                        return
+                    for line in response.iter_lines():
+                        if line:
+                            try:
+                                data = json.loads(line)
+                                content = data.get("message", {}).get("content", "")
+                                if content:
+                                    yield content
+                            except Exception as _silent_e:
+                                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
             except Exception as e:
                 yield f"⚠️ Erro ao conectar ao Ollama: {str(e)}"
         else:
