@@ -297,15 +297,17 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
             return
         raise RuntimeError(f"Não foi possível conectar ao Ollama: {e}")
 
-    if service and getattr(service, "_aborted", False):
-        return
-
-    # Flush final do buffer em modo CONSULTA (com sanitização)
+    # Flush residual do buffer em modo CONSULTA (com sanitização).
+    # Roda SEMPRE antes de qualquer return (inclusive abort/break),
+    # para não perder a parte da resposta ainda retida no buffer.
     if buffered_text:
         texto_restante = "".join(buffered_text)
         texto_limpo = _sanitizar_json_tools_do_texto(texto_restante)
         if texto_limpo:
             yield texto_limpo
+
+    if service and getattr(service, "_aborted", False):
+        return
 
     if function_calls_detected:
         if iteration >= max_iterations:
@@ -333,7 +335,7 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
             })
         
         teve_chunk = False
-        for chunk in gerar_resposta_stream(mensagens, iteration=iteration + 1, max_iterations=max_iterations, model=model_name):
+        for chunk in gerar_resposta_stream(mensagens, iteration=iteration + 1, max_iterations=max_iterations, model=model_name, service=service):
             if chunk:
                 teve_chunk = True
                 yield chunk
