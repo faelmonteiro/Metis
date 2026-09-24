@@ -12,7 +12,7 @@ if _venv_python.exists() and sys.executable != str(_venv_python):
     os.execv(str(_venv_python), [str(_venv_python)] + sys.argv)
 
 try:
-    import readline
+    import readline  # NOQA: efeito colateral intencional (histórico/edição no input())
 except ImportError as _silent_e:
     logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 

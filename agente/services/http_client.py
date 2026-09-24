@@ -15,10 +15,12 @@ _client_instance: httpx.Client = None
 _client_lock = threading.Lock()
 
 
-def get_http_client(timeout: httpx.Timeout = None) -> httpx.Client:
+def get_http_client() -> httpx.Client:
     """
     Retorna a instância compartilhada de httpx.Client com Keep-Alive ativo e thread-safe.
-    O parâmetro timeout é ignorado para o cliente compartilhado - use timeout por requisição.
+
+    O timeout é configurado uma única vez a partir de config.API_TIMEOUT na criação
+    do pool; para ajustar temporariamente, use timeout por requisição no retorno.
     """
     global _client_instance
     limits = httpx.Limits(
