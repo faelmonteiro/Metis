@@ -5,7 +5,7 @@ import re
 import httpx
 
 from agente import config
-from agente.services.base import BaseService
+from agente.services.base import BaseService, RetriableAPIError
 
 logger = logging.getLogger(__name__)
 
@@ -135,6 +135,8 @@ def _handle_error(res, model: str = None):
         m_name = model or config.GROQ_MODEL
         if "content must be a string" in msg.lower():
             msg = f"{msg}\n[Dica] O modelo atual do Groq ({m_name}) é de texto puro e não suporta imagens. Use '/modelo gemini' para visão multimodal."
+        if res.status_code == 429 or 500 <= res.status_code < 600:
+            raise RetriableAPIError(f"Groq API ({res.status_code}): {msg}")
         raise RuntimeError(f"Groq API ({res.status_code}): {msg}")
 
 
@@ -178,10 +180,12 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
                     if service:
                         service._active_stream = None
             break
-        except (httpx.RequestError, Exception) as e:
+        except (httpx.RequestError, RetriableAPIError) as e:
             if service and getattr(service, "_aborted", False):
                 return
             if attempt == retries - 1:
+                if isinstance(e, RetriableAPIError):
+                    raise
                 raise RuntimeError(f"Erro de conexão com Groq API: {e}")
             import time
             time.sleep(1.5)

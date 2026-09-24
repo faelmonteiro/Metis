@@ -11,7 +11,7 @@ from typing import Iterator
 import httpx
 
 from agente import config
-from agente.services.base import BaseService, parse_openai_sse_stream, process_tool_calls_map
+from agente.services.base import BaseService, RetriableAPIError, parse_openai_sse_stream, process_tool_calls_map
 
 logger = logging.getLogger(__name__)
 
@@ -179,6 +179,8 @@ class CustomOpenAIService(BaseService):
                     msg = str(err_obj) or body
             except Exception:
                 msg = f"HTTP {res.status_code}"
+            if res.status_code == 429 or 500 <= res.status_code < 600:
+                raise RetriableAPIError(f"{self.nome} API ({res.status_code}): {msg}")
             raise RuntimeError(f"{self.nome} API ({res.status_code}): {msg}")
 
     def gerar_resposta_stream(self, mensagens: list, iteration: int = 0, max_iterations: int = 5) -> Iterator[str]:
@@ -216,10 +218,12 @@ class CustomOpenAIService(BaseService):
                     finally:
                         self._active_stream = None
                 break
-            except (httpx.RequestError, Exception) as e:
+            except (httpx.RequestError, RetriableAPIError) as e:
                 if self._aborted:
                     return
                 if attempt == retries - 1:
+                    if isinstance(e, RetriableAPIError):
+                        raise
                     raise RuntimeError(f"Erro de conexão com {self.nome} ({self.base_url}): {e}")
                 import time
                 time.sleep(1.5)

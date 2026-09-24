@@ -86,7 +86,7 @@ def gerar_resposta_stream(mensagens: list, model: str = None, service=None):
             finally:
                 if service:
                     service._active_stream = None
-    except (httpx.RequestError, Exception) as e:
+    except httpx.RequestError as e:
         if service and getattr(service, "_aborted", False):
             return
         raise RuntimeError(f"Erro de conexão com NVIDIA API: {e}")

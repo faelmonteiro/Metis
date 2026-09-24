@@ -5,6 +5,11 @@ from typing import Iterator, Dict, Any, Generator
 
 logger = logging.getLogger(__name__)
 
+class RetriableAPIError(RuntimeError):
+    """Erro HTTP transitório (429 or 5xx) que merece nova tentativa."""
+    pass
+
+
 class BaseService(ABC):
     def __init__(self):
         self._active_stream = None

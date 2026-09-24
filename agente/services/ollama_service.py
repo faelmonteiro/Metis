@@ -291,7 +291,7 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
                 if service:
                     service._active_stream = None
                 res.close()
-    except (httpx.RequestError, Exception) as e:
+    except httpx.RequestError as e:
         if service and getattr(service, "_aborted", False):
             return
         raise RuntimeError(f"Não foi possível conectar ao Ollama: {e}")
