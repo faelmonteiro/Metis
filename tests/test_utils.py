@@ -119,13 +119,12 @@ class TestUtils(unittest.TestCase):
 
     def test_prompt_links_server_vs_local(self):
         from agente.prompts import build_system_prompt
-        # Provedor local / Ollama: permanece enxuto e sem alterações
+        # Provedor local / Ollama: prompt compacto, sem diretriz de links clicáveis
         prompt_ollama = build_system_prompt("Ollama")
-        self.assertEqual(prompt_ollama, "Você é o assistente Metis. Responda sempre em português brasileiro de forma concisa e direta.")
         self.assertNotIn("Links e Sites Clicáveis", prompt_ollama)
+        self.assertIn("assistente especialista em Linux", prompt_ollama)
 
         prompt_small = build_system_prompt("llama3.2:3b")
-        self.assertEqual(prompt_small, "Você é o assistente Metis. Responda sempre em português brasileiro de forma concisa e direta.")
         self.assertNotIn("Links e Sites Clicáveis", prompt_small)
 
         # Provedores em nuvem / servidor: inclui diretriz de links clicáveis

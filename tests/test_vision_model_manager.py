@@ -18,6 +18,7 @@ def mock_config(load_models_config, cfg: dict):
         mock.patch.object(storage, "load_config", return_value=cfg, autospec=True),
         mock.patch.object(preferences, "load_config", return_value=cfg, autospec=True),
         mock.patch.object(custom, "load_config", return_value=cfg, autospec=True),
+        mock.patch.object(model_manager, "load_models_config", return_value=cfg, autospec=True),
     ]
     for p in patchers:
         p.start()
