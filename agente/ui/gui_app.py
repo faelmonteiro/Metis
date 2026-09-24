@@ -3519,7 +3519,7 @@ class MetisMainWindow(QMainWindow):
                 provider_key="Gemini",
                 modelos=obter_modelos_provedor("Gemini"),
                 activate_callback=self.activate_gemini,
-                is_active_callback=lambda mod: (getattr(self.current_service, "__class__", None).__name__ == "GeminiService" and config.GEMINI_MODEL == mod),
+                is_active_callback=lambda mod: (type(self.current_service).__name__ == "GeminiService" and config.GEMINI_MODEL == mod),
                 icon="✨"
             )
 
@@ -3533,7 +3533,7 @@ class MetisMainWindow(QMainWindow):
                 provider_key="Groq",
                 modelos=obter_modelos_provedor("Groq"),
                 activate_callback=self.activate_groq,
-                is_active_callback=lambda mod: (getattr(self.current_service, "__class__", None).__name__ == "GroqService" and config.GROQ_MODEL == mod),
+                is_active_callback=lambda mod: (type(self.current_service).__name__ == "GroqService" and config.GROQ_MODEL == mod),
                 icon="⚡"
             )
 
@@ -3547,7 +3547,7 @@ class MetisMainWindow(QMainWindow):
                 provider_key="NVIDIA",
                 modelos=obter_modelos_provedor("NVIDIA"),
                 activate_callback=self.activate_nvidia,
-                is_active_callback=lambda mod: (getattr(self.current_service, "__class__", None).__name__ == "NvidiaService" and getattr(config, "NVIDIA_MODEL", "") == mod),
+                is_active_callback=lambda mod: (type(self.current_service).__name__ == "NvidiaService" and getattr(config, "NVIDIA_MODEL", "") == mod),
                 icon="🟢"
             )
 
@@ -3561,7 +3561,7 @@ class MetisMainWindow(QMainWindow):
                 provider_key="G4F",
                 modelos=obter_modelos_provedor("G4F"),
                 activate_callback=self.activate_g4f,
-                is_active_callback=lambda mod: (getattr(self.current_service, "__class__", None).__name__ == "G4FService" and getattr(self.current_service, "model", "") == mod),
+                is_active_callback=lambda mod: (type(self.current_service).__name__ == "G4FService" and getattr(self.current_service, "model", "") == mod),
                 icon="🌍"
             )
 

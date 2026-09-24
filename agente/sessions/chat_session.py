@@ -117,7 +117,7 @@ def processar_pergunta(pergunta: str, hm: HistoryManager, service: BaseService, 
 
     resposta_completa = ""
     erro = False
-    tempo_inicio = time.time()
+    tempo_inicio = time.monotonic()
 
     try:
         print(f"\033[K{BOLD}Assistente:{RESET}")
@@ -155,7 +155,7 @@ def processar_pergunta(pergunta: str, hm: HistoryManager, service: BaseService, 
 
     finally:
         desbloquear_teclado()
-        tempo_fim = time.time()
+        tempo_fim = time.monotonic()
         duracao = tempo_fim - tempo_inicio
 
     if resposta_completa.strip():
