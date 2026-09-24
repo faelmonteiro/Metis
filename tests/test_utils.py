@@ -1,6 +1,15 @@
 import unittest
 from agente.ui.clipboard import extrair_blocos
 
+
+def _requer_qt():
+    """Skip gracioso quando PyQt6 (e o módulo gui_app) não estão disponíveis."""
+    try:
+        __import__("agente.ui.gui_app")
+    except ModuleNotFoundError as exc:
+        raise unittest.SkipTest(f"Qt indisponível no ambiente: {exc}") from exc
+
+
 class TestUtils(unittest.TestCase):
     def test_extrair_bloco_shell_com_tag(self):
         resposta = "Aqui está o comando:\n```bash\nls -l\npwd\n```\nExecute-o."
@@ -139,6 +148,7 @@ class TestUtils(unittest.TestCase):
         self.assertIn("DIRETRIZES DE RESPOSTA E DESIGN", prompt_compact)
 
     def test_format_markdown_links_to_html(self):
+        _requer_qt()
         from agente.ui.gui_app import format_markdown_to_html
         texto = "Consulte o [Google](https://google.com) ou a [Wikipedia](https://wikipedia.org) para mais detalhes."
         html_out = format_markdown_to_html(texto)
@@ -162,6 +172,7 @@ class TestUtils(unittest.TestCase):
 
 
     def test_single_instance_toggle_method(self):
+        _requer_qt()
         from agente.ui.gui_app import MetisMainWindow
         self.assertTrue(hasattr(MetisMainWindow, "toggle_or_focus"))
         self.assertTrue(callable(getattr(MetisMainWindow, "toggle_or_focus")))

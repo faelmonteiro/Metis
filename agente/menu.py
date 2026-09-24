@@ -3,6 +3,7 @@ logger = logging.getLogger(__name__)
 import json
 import os
 import shutil
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -22,8 +23,17 @@ from agente.utils import configurar_api_key, safe_input, hyprctl
 def salvar_estado_chat(estado: dict):
     try:
         state_file = Path(config.HISTORICO_DIR) / ".last_chat_state.json"
-        with open(state_file, "w", encoding="utf-8") as f:
-            json.dump(estado, f)
+        fd, tmp_path = tempfile.mkstemp(suffix=".tmp", dir=str(state_file.parent))
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(estado, f, ensure_ascii=False, indent=2)
+            os.replace(tmp_path, str(state_file))
+        except Exception:
+            try:
+                os.unlink(tmp_path)
+            except OSError as _silent_e:
+                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+            raise
     except Exception as _silent_e:
         logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 

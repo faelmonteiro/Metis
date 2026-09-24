@@ -38,7 +38,6 @@ class TestSecurity(unittest.TestCase):
 
     def test_cria_backup_editar_arquivo(self):
         import tempfile
-        import shutil
         from agente.services import tools_defs
         
         tools_defs.AUTO_APPROVE_MODE = True
