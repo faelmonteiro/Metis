@@ -114,7 +114,20 @@ class CustomOpenAIService(BaseService):
         headers, payload = self._build_request(mensagens, stream=True)
 
         from agente.services.http_client import get_http_client
+        import time
         retries = 3
+        tentativas_deadline = time.monotonic() + 90.0
+
+        def _espera_retry(espera: float, motivo: str, attempt: int) -> None:
+            restante = tentativas_deadline - time.monotonic()
+            if espera >= restante:
+                espera = max(restante, 0.0)
+            if espera > 0:
+                logger.info("%s: %s (tentativa %d/%d) — aguardando %.1fs", self.nome, motivo, attempt + 1, retries, espera)
+                time.sleep(espera)
+            else:
+                raise RuntimeError(f"{self.nome}: teto de 90s de retentativas atingido")
+
         for attempt in range(retries):
             if self._aborted:
                 return
@@ -125,8 +138,7 @@ class CustomOpenAIService(BaseService):
                     self._active_stream = res
                     try:
                         if res.status_code == 429 and attempt < retries - 1:
-                            import time
-                            time.sleep(3.0)
+                            _espera_retry(3.0, "rate-limit (429)", attempt)
                             continue
                         if res.status_code in (400, 404) and "tools" in payload:
                             try:
@@ -151,8 +163,7 @@ class CustomOpenAIService(BaseService):
                     if isinstance(e, RetriableAPIError):
                         raise
                     raise RuntimeError(f"Erro de conexão com {self.nome} ({self.base_url}): {e}")
-                import time
-                time.sleep(1.5)
+                _espera_retry(1.5, "falha de conexão/retry", attempt)
 
         if tool_calls_map:
             if iteration >= max_iterations:

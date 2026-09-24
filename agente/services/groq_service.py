@@ -75,7 +75,20 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
     headers, payload = _build_request(mensagens, stream=True, model=model_name)
 
     from agente.services.http_client import get_http_client
+    import time
     retries = 5
+    tentativas_deadline = time.monotonic() + 90.0
+
+    def _espera_retry(espera: float, motivo: str, attempt: int) -> None:
+        restante = tentativas_deadline - time.monotonic()
+        if espera >= restante:
+            espera = max(restante, 0.0)
+        if espera > 0:
+            logger.info("Groq: %s (tentativa %d/%d) — aguardando %.1fs", motivo, attempt + 1, retries, espera)
+            time.sleep(espera)
+        else:
+            raise RuntimeError("Groq: teto de 90s de retentativas atingido")
+
     for attempt in range(retries):
         if service and getattr(service, "_aborted", False):
             return
@@ -87,7 +100,6 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
                     service._active_stream = res
                 try:
                     if res.status_code == 429 and attempt < retries - 1:
-                        import time
                         espera = 3.0
                         try:
                             corpo = res.read().decode("utf-8")
@@ -96,7 +108,7 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
                                 espera = max(float(m.group(1)) + 1.0, 3.0)
                         except Exception as _silent_e:
                             logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
-                        time.sleep(espera)
+                        _espera_retry(espera, "rate-limit (429)", attempt)
                         continue
                     _handle_error(res, model=model_name)
 
@@ -112,8 +124,7 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
                 if isinstance(e, RetriableAPIError):
                     raise
                 raise RuntimeError(f"Erro de conexão com Groq API: {e}")
-            import time
-            time.sleep(1.5)
+            _espera_retry(1.5, "falha de conexão/retry", attempt)
 
     if tool_calls_map:
         if service and getattr(service, "_aborted", False):
