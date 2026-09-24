@@ -6,6 +6,7 @@ import re
 import shutil
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from agente import config
@@ -92,10 +93,10 @@ _PALAVRAS_CHAVE_BUSCA = [
     r"notícia", r"noticia", r"último", r"ultimo", r"última", r"ultima",
     r"aconteceu", r"resultado", r"placar", r"eleição", r"eleicao",
     r"lançamento", r"lancamento", r"estreia",
-    r"2024", r"2025", r"2026", r"2027", r"tempo real",
+    r"tempo real",
     r"quem é", r"quem e",
     r"pesquise", r"busque", r"procure", r"pesquisar", r"buscar", r"procurar"
-]
+] + [str(ano) for ano in range(datetime.now().year - 2, datetime.now().year + 2)]
 _PADRAO_BUSCA = re.compile(r"\b(?:{})\b".format("|".join(_PALAVRAS_CHAVE_BUSCA)), re.IGNORECASE)
 
 _PADRAO_SISTEMA_LOCAL = re.compile(
