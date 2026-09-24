@@ -3778,7 +3778,7 @@ class MetisMainWindow(QMainWindow):
         if isinstance(self.current_service, GeminiService):
             return "✨", "Gemini", getattr(config, "GEMINI_MODEL", "gemini-2.0-flash")
         elif isinstance(self.current_service, GroqService):
-            return "⚡", "Groq", getattr(config, "GROQ_MODEL", "llama-3.3-70b-versatile")
+            return "⚡", "Groq", config.GROQ_MODEL
         elif isinstance(self.current_service, NvidiaService):
             return "🟢", "NVIDIA", getattr(config, "NVIDIA_MODEL", "meta/llama-3.1-70b-instruct")
         elif isinstance(self.current_service, G4FService):
@@ -3873,7 +3873,9 @@ class MetisMainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.warning(self, "Gemini", f"Erro ao ativar Gemini: {e}")
 
-    def activate_groq(self, model_name: str = "llama-3.3-70b-versatile"):
+    def activate_groq(self, model_name: str = None):
+        # Sem argumento, mantém o default do config (não sobrescreve GROQ_MODEL).
+        model_name = (model_name or "").strip() or config.GROQ_MODEL
         if not config.GROQ_API_KEY:
             res = QMessageBox.question(
                 self,

@@ -11,11 +11,9 @@ _venv_python = _project_root / ".venv" / "bin" / "python"
 if _venv_python.exists() and sys.executable != str(_venv_python):
     os.execv(str(_venv_python), [str(_venv_python)] + sys.argv)
 
-try:
-    import readline  # NOQA: efeito colateral intencional (histórico/edição no input())
-except ImportError as _silent_e:
-    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
-
+# readline/histórico do terminal é carregado e configurado em agente/completer
+# (configurar_readline, chamado por main). Imports duplicados aqui seriam
+# redundantes e silenciados como "unused" — mantemos a responsabilidade única lá.
 from agente.main import main
 from agente.services.http_client import close_http_client
 atexit.register(close_http_client)

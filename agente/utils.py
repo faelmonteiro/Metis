@@ -120,7 +120,11 @@ def _stdin_e_tty() -> bool:
         return False
 
 
+_atexit_teclado_registrado = False
+
+
 def bloquear_teclado():
+    global _atexit_teclado_registrado
     if not _stdin_e_tty():
         return
     try:
@@ -129,7 +133,9 @@ def bloquear_teclado():
         attr = termios.tcgetattr(fd)
         attr[3] = attr[3] & ~termios.ECHO
         termios.tcsetattr(fd, termios.TCSADRAIN, attr)
-        atexit.register(desbloquear_teclado)
+        if not _atexit_teclado_registrado:
+            atexit.register(desbloquear_teclado)
+            _atexit_teclado_registrado = True
     except Exception as _silent_e:
         logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
 

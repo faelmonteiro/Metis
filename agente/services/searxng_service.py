@@ -124,7 +124,8 @@ def extrair_conteudo_url(url: str, timeout: int = 8, max_chars: int = 2000) -> s
         parser.feed(resp.text)
         texto = parser.get_text()
         return texto[:max_chars]
-    except Exception:
+    except Exception as e:
+        logger.debug("extrair_conteudo_url falhou para %s: %s", url, e)
         return ""
 
 

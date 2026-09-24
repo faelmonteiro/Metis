@@ -138,7 +138,7 @@ def exibir_painel(history_manager=None):
         modelo = getattr(config, "GEMINI_MODEL", "gemini-1.5-flash")
     elif def_prov == "groq" and config.GROQ_API_KEY:
         provedor = "Groq Cloud"
-        modelo = getattr(config, "GROQ_MODEL", "llama-3.3-70b-versatile")
+        modelo = config.GROQ_MODEL
     elif def_prov == "nvidia" and config.NVIDIA_API_KEY:
         provedor = "NVIDIA NIM"
         modelo = getattr(config, "NVIDIA_MODEL", "meta/llama-3.1-70b-instruct")
@@ -155,7 +155,7 @@ def exibir_painel(history_manager=None):
             modelo = getattr(config, "GEMINI_MODEL", "gemini-1.5-flash")
         elif config.GROQ_API_KEY:
             provedor = "Groq Cloud"
-            modelo = getattr(config, "GROQ_MODEL", "llama-3.3-70b-versatile")
+            modelo = config.GROQ_MODEL
         elif config.NVIDIA_API_KEY:
             provedor = "NVIDIA NIM"
             modelo = getattr(config, "NVIDIA_MODEL", "meta/llama-3.1-70b-instruct")

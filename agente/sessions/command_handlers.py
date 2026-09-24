@@ -265,8 +265,24 @@ def handle_exportar(history_manager: HistoryManager) -> None:
         print(f"{YELLOW}Histórico vazio.{RESET}")
         return
 
-    export_dir = Path(config.PROJECT_ROOT) / "exports"
-    export_dir.mkdir(exist_ok=True)
+    candidatos = [
+        Path(config.PROJECT_ROOT) / "exports",
+        Path.home() / "metis_exports",
+    ]
+    export_dir = None
+    for d in candidatos:
+        try:
+            d.mkdir(parents=True, exist_ok=True)
+            export_dir = d
+            break
+        except OSError as _e:
+            logger.debug("Exceção silenciosa tratada: %s", _e, exc_info=True)
+    if export_dir is None:
+        print(f"{RED}Erro ao exportar: nenhum diretório gravável ({', '.join(str(c) for c in candidatos)}).{RESET}")
+        return
+    if export_dir != candidatos[0]:
+        print(f"{YELLOW}Diretório padrão indisponível; exportando em {export_dir}.{RESET}")
+
     nome = export_dir / f"conversa_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
     try:
         with open(nome, "w", encoding="utf-8") as f:

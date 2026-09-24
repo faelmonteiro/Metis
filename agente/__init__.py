@@ -1,8 +1,8 @@
-"""Módulo principal do agente Llama + SearXNG."""
+"""Módulo principal do agente Llama + SearXNG.
+
+readline/histórico do terminal é carregado e configurado em agente/completer
+(configurar_readline, chamado por main). Imports duplicados aqui seriam
+redundantes e silenciados como "unused" — mantemos a responsabilidade única lá.
+"""
 import logging
 logger = logging.getLogger(__name__)
-
-try:
-    import readline  # NOQA: efeito colateral intencional (histórico/edição no input())
-except ImportError as _silent_e:
-    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
