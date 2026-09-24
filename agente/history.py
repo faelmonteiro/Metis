@@ -229,15 +229,27 @@ class HistoryManager:
         novo_nome = sanitizar_nome_sessao(novo_nome)
         nova_path = self.dir_path / f"{novo_nome}.json"
 
-        if nova_path.exists():
+        if not self.file_path.exists():
             return False
 
         try:
-            if self.file_path.exists():
-                self.file_path.rename(nova_path)
-
-            self.sessao = novo_nome
-            self.file_path = nova_path
-            return True
-        except Exception:
+            # Renomeação atômica sem sobrescrita: os.rename no Linux substitui
+            # arquivos existentes em silêncio. Criar o link rígido do novo nome
+            # (O_EXCL implícito) falha com FileExistsError se o alvo existir,
+            # eliminando a janela de corrida do antigo check-then-rename.
+            os.link(self.file_path, nova_path)
+            self.file_path.unlink()
+        except FileExistsError:
             return False
+        except OSError:
+            # Filesystem sem suporte a hard link: cai no rename com checagem.
+            try:
+                if nova_path.exists():
+                    return False
+                self.file_path.rename(nova_path)
+            except OSError:
+                return False
+
+        self.sessao = novo_nome
+        self.file_path = nova_path
+        return True
