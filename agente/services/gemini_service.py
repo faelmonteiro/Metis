@@ -22,7 +22,6 @@ def _build_request(mensagens: list) -> tuple:
     contents = []
     system_instruction = None
 
-    import base64
     import mimetypes
 
     from agente.services.tools_defs import GEMINI_TOOLS_DECLARATION

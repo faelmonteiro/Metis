@@ -5,7 +5,7 @@ from datetime import datetime
 from pathlib import Path
 
 from agente import config
-from agente.colors import *
+from agente.colors import BOLD, CYAN, GRAY, GREEN, RED, RESET, YELLOW
 from agente.history import HistoryManager
 from agente.services.base import BaseService
 from agente.utils import (

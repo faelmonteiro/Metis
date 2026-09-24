@@ -1,9 +1,11 @@
-import logging
-logger = logging.getLogger(__name__)
 """
 Motor de Inteligência Artificial para Análise Visual.
 Suporta múltiplos provedores (NVIDIA NIM, Google Gemini, OpenRouter e Ollama) com streaming em tempo real.
 """
+
+import logging
+logger = logging.getLogger(__name__)
+
 
 import base64
 import json

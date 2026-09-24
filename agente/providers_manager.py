@@ -3,40 +3,28 @@ Gerenciador de modelos e servidores personalizados (OpenAI-compatible) para o Me
 Wrapper fino sobre o módulo centralizado agente.models.
 """
 import logging
-from typing import List, Dict, Optional
+from typing import List, Optional
 
 from agente import config
-from agente.colors import BOLD, RESET, YELLOW, GREEN, RED, CYAN, GRAY
 
 logger = logging.getLogger(__name__)
 
-# Re-exporta tudo do módulo centralizado
+# Re-exporta técnicas usadas do módulo centralizado
 from agente.models import (
     # Storage
     load_config,
     save_config,
-    CONFIG_FILE,
     purge_model_from_legacy_files,
-    # Schema
-    ConfigModel,
-    CustomServer,
-    Preferences,
     # Builtin models
     BUILTIN_MODELS,
-    DEFAULT_CUSTOM_SERVERS,
-    get_builtin_models,
     get_models_for_provider,
-    get_all_providers,
     add_builtin_model,
-    remove_builtin_model,
-    merge_builtin_with_config,
     _canonical_provider_name,
     # Custom servers CRUD
     get_custom_servers,
     get_custom_server,
     add_custom_server,
     remove_custom_server,
-    update_custom_server,
     add_model_to_server,
     remove_model_from_server,
     set_server_active_model,
@@ -44,17 +32,11 @@ from agente.models import (
     # Preferences & .env
     get_preference,
     set_preference,
-    get_active_model,
-    set_active_model,
-    get_provider_active_model,
-    set_provider_active_model,
     get_removed_servers,
     is_server_removed as _is_server_removed,
     remove_server,
     restore_server,
-    get_env_var,
     save_env_var,
-    remove_env_var,
 )
 
 # Compatibilidade: alias para funções com nomes ligeiramente diferentes
@@ -105,7 +87,6 @@ def adicionar_modelo_provedor(provedor: str, modelo: str, server_id: Optional[st
     if server_id:
         add_model_to_server(server_id, modelo)
         # Sincroniza no builtin se for OpenRouter
-        prov_key = provedor
         if server_id == "openrouter":
             add_builtin_model("OpenRouter", modelo)
     else:

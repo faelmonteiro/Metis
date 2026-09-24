@@ -1,9 +1,11 @@
-import logging
-logger = logging.getLogger(__name__)
 """
 Cliente HTTP compartilhado com Connection Pooling e Keep-Alive para o Metis.
 Reutiliza conexões TCP e handshakes TLS já abertos, economizando centenas de ms por chamada.
 """
+
+import logging
+logger = logging.getLogger(__name__)
+
 
 import threading
 import httpx

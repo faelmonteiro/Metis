@@ -1,12 +1,14 @@
-import logging
-logger = logging.getLogger(__name__)
 """
 Gerenciamento de preferências do usuário e variáveis de ambiente.
 """
+
+import logging
+logger = logging.getLogger(__name__)
+
 import os
 import threading
 from pathlib import Path
-from typing import Any, Optional, Dict
+from typing import Any, Dict
 from .storage import load_config, save_config, CONFIG_DIR
 
 
@@ -206,7 +208,6 @@ PROVIDER_DEFAULTS = {
 
 def _get_provider_dirs() -> list:
     """Retorna todos os diretórios onde salvar estado do provedor."""
-    home = Path.home()
     return [
         Path.home() / ".config" / "metis",
         Path.home() / ".ZSH" / "ai",

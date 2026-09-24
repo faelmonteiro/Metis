@@ -100,7 +100,6 @@ def format_openai_messages(
     - Com descartar_tools=True (ex.: NVIDIA NIM), mensagens de ferramenta são
       descartadas e apenas o texto é considerado.
     """
-    import base64
     import mimetypes
 
     formatted_messages = []

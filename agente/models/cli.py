@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-import logging
-logger = logging.getLogger(__name__)
 """
 CLI para gerenciar modelos do Metis via terminal (substitui manage_models.py legacy).
 """
+
+import logging
+logger = logging.getLogger(__name__)
+
 import sys
 import json
 import argparse
@@ -15,19 +17,16 @@ if str(metis_root) not in sys.path:
     sys.path.insert(0, str(metis_root))
 
 from agente.models import (
-    load_config, save_config,
-    get_builtin_models, get_models_for_provider, get_all_providers,
-    get_custom_servers, get_custom_server,
+    load_config,
+    get_builtin_models,
+    get_custom_servers,
     add_custom_server, remove_custom_server,
     add_model_to_server, remove_model_from_server, set_server_active_model,
     get_server_models,
-    get_preference, set_preference,
-    get_active_model, set_active_model,
     get_provider_active_model, set_provider_active_model,
     get_removed_servers, is_server_removed, remove_server, restore_server,
     get_env_var, save_env_var, remove_env_var,
     save_provider_state,
-    BUILTIN_MODELS, DEFAULT_CUSTOM_SERVERS,
 )
 
 
@@ -91,7 +90,7 @@ def cmd_add_model(args):
     if add_model_to_server(args.server, args.modelo):
         print(f"✓ Modelo '{args.modelo}' adicionado ao servidor '{args.server}'")
     else:
-        print(f"✗ Falha ao adicionar modelo", file=sys.stderr)
+        print("✗ Falha ao adicionar modelo", file=sys.stderr)
         sys.exit(1)
 
 
@@ -100,7 +99,7 @@ def cmd_remove_model(args):
     if remove_model_from_server(args.server, args.modelo):
         print(f"✓ Modelo '{args.modelo}' removido do servidor '{args.server}'")
     else:
-        print(f"✗ Modelo não encontrado", file=sys.stderr)
+        print("✗ Modelo não encontrado", file=sys.stderr)
         sys.exit(1)
 
 
@@ -123,7 +122,7 @@ def cmd_set_active(args):
         if ok:
             print(f"✓ Modelo ativo do servidor '{args.server}' = '{modelo}'")
         else:
-            print(f"✗ Falha", file=sys.stderr)
+            print("✗ Falha", file=sys.stderr)
             sys.exit(1)
     elif provider and modelo:
         set_provider_active_model(provider, modelo)
@@ -141,7 +140,7 @@ def cmd_remove(args):
         if remove_model_from_server(args.id, args.modelo):
             print(f"✓ Modelo '{args.modelo}' removido do servidor '{args.id}'")
         else:
-            print(f"✗ Modelo não encontrado", file=sys.stderr)
+            print("✗ Modelo não encontrado", file=sys.stderr)
             sys.exit(1)
     else:
         remove_server(args.id)
@@ -375,18 +374,7 @@ def main():
     # sync (sincronização real com o terminal ZSH e arquivos canônicos)
     def cmd_sync(args):
         """Sincroniza estado do Metis com o terminal ZSH e arquivos canônicos."""
-        from agente.models import (
-            load_config,
-            get_provider_active_model,
-            get_custom_servers,
-            get_removed_servers,
-            is_server_removed,
-            save_provider_state,
-            save_env_var,
-            get_env_var,
-            CONFIG_DIR,
-            CONFIG_FILE,
-        )
+        from agente.models import CONFIG_FILE
 
         config = load_config()
         prefs = config.get("preferences", {})
@@ -471,7 +459,7 @@ def main():
         if removed:
             print(f"\033[90m✓ Servidores excluídos mantidos fora: {', '.join(removed)}\033[0m")
 
-        print(f"\033[1;32m✓ Arquivos ~/.config/metis/.fix_ia_selected e ~/.ZSH/ai/.fix_ia_selected atualizados!\033[0m")
+        print("\033[1;32m✓ Arquivos ~/.config/metis/.fix_ia_selected e ~/.ZSH/ai/.fix_ia_selected atualizados!\033[0m")
         print("\033[1;32m✓ Sincronização concluída com sucesso!\033[0m")
 
     sub.add_parser("sync", help="Sincroniza configurações e estado do Metis para o terminal").set_defaults(func=cmd_sync)

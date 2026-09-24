@@ -1,6 +1,5 @@
 import json
 import os
-import shutil
 import tempfile
 from pathlib import Path
 import logging
@@ -49,7 +48,7 @@ class HistoryManager:
             except Exception as _silent_e:
                 logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
             self.historico = []
-        except Exception as e:
+        except Exception:
             logger.exception("Falha ao carregar histórico")
             self.historico = []
 
@@ -73,7 +72,7 @@ class HistoryManager:
                     logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
                 raise
 
-        except Exception as e:
+        except Exception:
             logger.exception("Falha ao salvar histórico")
 
     def adicionar_mensagem(self, role: str, content: str, media_paths: list = None):

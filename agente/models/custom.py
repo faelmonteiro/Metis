@@ -2,10 +2,8 @@
 CRUD para servidores customizados (OpenRouter, DeepSeek, etc.).
 """
 import re
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional
 from .storage import load_config, save_config, purge_model_from_legacy_files
-from .schema import CustomServer
-from .builtin import DEFAULT_CUSTOM_SERVERS, _canonical_provider_name
 
 
 def _normalize_server_id(name: str) -> str:

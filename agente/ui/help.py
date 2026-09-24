@@ -1,13 +1,10 @@
 from agente.colors import (
     RESET,
     BOLD,
-    RED,
     GREEN,
     YELLOW,
-    BLUE,
     MAGENTA,
     CYAN,
-    WHITE,
     GRAY,
 )
 

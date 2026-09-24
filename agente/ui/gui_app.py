@@ -159,7 +159,6 @@ class AIWorker(QThread):
             # O valor é por-thread (thread-local), então workers concorrentes não se desligam.
             tools_defs.definir_auto_approve(True)
 
-            from agente.utils import detectar_intencao_busca
             from agente.services.searxng_service import buscar_web
 
             deve_buscar = bool(self.forcar_web)
@@ -6109,7 +6108,7 @@ class MetisMainWindow(QMainWindow):
         try:
             from agente.sessions.command_handlers import handle_exportar
             handle_exportar(self.history_manager)
-            QMessageBox.information(self, "Exportar", f"Sessão exportada com sucesso para a pasta 'exports' no projeto!")
+            QMessageBox.information(self, "Exportar", "Sessão exportada com sucesso para a pasta 'exports' no projeto!")
         except Exception as e:
             QMessageBox.warning(self, "Exportar", f"Erro ao exportar: {e}")
 
@@ -6205,9 +6204,9 @@ def main():
         if client:
             def handle_read():
                 try:
-                    data = bytes(client.readAll()).decode("utf-8").strip()
+                    bytes(client.readAll()).decode("utf-8").strip()
                 except Exception:
-                    data = ""
+                    pass
                 client.disconnectFromServer()
                 window.toggle_or_focus()
 

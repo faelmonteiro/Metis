@@ -4,7 +4,7 @@ import time
 logger = logging.getLogger(__name__)
 
 from agente import config
-from agente.colors import *
+from agente.colors import BOLD, CYAN, GRAY, GREEN, RED, RESET, YELLOW
 from agente.history import HistoryManager
 from agente.services.base import BaseService
 from agente.services import searxng_service
@@ -14,7 +14,6 @@ from agente.utils import (
     desbloquear_teclado,
     detectar_intencao_busca,
     limitar_texto,
-    hyprctl,
     mover_janela_canto_superior_direito,
     safe_input,
     configurar_api_key

@@ -1,14 +1,16 @@
-import logging
-logger = logging.getLogger(__name__)
 """
 Gerenciador de Modelos e Provedores do Metis Vision.
 Wrapper fino que re-exporta do módulo centralizado agente.models.
 """
+
+import logging
+logger = logging.getLogger(__name__)
+
 import json
 import os
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple
 
 # Adiciona path do Metis principal para importar agente.models
 metis_root = Path(__file__).parent.parent
@@ -21,10 +23,6 @@ from agente.models import (
     load_config as load_models_config,
     save_config as save_models_config,
     CONFIG_FILE,
-    # Schema
-    ConfigModel,
-    CustomServer,
-    Preferences,
     # Builtin models
     BUILTIN_MODELS as DEFAULT_MODELS_DATA,
     get_builtin_models,
@@ -34,8 +32,6 @@ from agente.models import (
     # Custom servers CRUD
     get_custom_servers,
     get_custom_server,
-    add_custom_server,
-    remove_custom_server,
     update_custom_server,
     add_model_to_server,
     remove_model_from_server,
@@ -44,8 +40,6 @@ from agente.models import (
     # Preferences & .env
     get_preference as get_user_setting,
     set_preference as set_user_setting,
-    get_active_model,
-    set_active_model,
     get_provider_active_model,
     set_provider_active_model,
     get_removed_servers,

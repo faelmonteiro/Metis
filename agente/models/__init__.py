@@ -7,7 +7,7 @@ Single source of truth para config_models.json (~/.config/metis/).
 from .storage import load_config, save_config, CONFIG_FILE, CONFIG_DIR, purge_model_from_legacy_files
 
 # Schema (data models)
-from .schema import ConfigModel, CustomServer, Preferences, validate_provider_name, validate_model_id, is_server_removed
+from .schema import ConfigModel, CustomServer, Preferences, validate_provider_name, validate_model_id
 
 # Builtin models (catalog)
 from .builtin import (

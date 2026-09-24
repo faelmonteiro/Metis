@@ -1,5 +1,3 @@
-import logging
-logger = logging.getLogger(__name__)
 """
 Interface Gráfica Flutuante e Moderna (Metis Oracle • HUD Style) em PyQt6.
 Inclui:
@@ -9,9 +7,12 @@ Inclui:
   4. Extrator de comandos bash, streaming de IA e histórico contínuo de conversação.
 """
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 import json
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -1256,11 +1257,11 @@ class ScreenAIOverlay(QWidget):
     def dragEnterEvent(self, event: QDragEnterEvent):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
-            self.card.setStyleSheet(self.current_stylesheet + f"""
-            QWidget#MainCard {{
+            self.card.setStyleSheet(self.current_stylesheet + """
+            QWidget#MainCard {
                 border: 2px dashed #fbbf24;
                 background-color: rgba(245, 158, 11, 0.12);
-            }}
+            }
             """)
         else:
             event.ignore()
@@ -1770,7 +1771,7 @@ class ScreenAIOverlay(QWidget):
         if len(self.chat_history) > 1:
             self.rendered_markdown_history += f"\n\n---\n\n### 🧑 **Você:**\n{prompt}\n\n### 🤖 **Metis:**\n"
         else:
-            self.rendered_markdown_history = f"### 🤖 **Metis:**\n"
+            self.rendered_markdown_history = "### 🤖 **Metis:**\n"
 
         self.current_stream_chunk = ""
         self.preview_container.hide()

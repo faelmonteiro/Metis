@@ -1,10 +1,12 @@
-import logging
-logger = logging.getLogger(__name__)
 """
 Módulo de Gerenciamento de Temas, Aparência e Estilos do Metis.
 Permite alternar paletas visuais completas, transparência/opacidade,
 tamanho e família de fontes, efeitos de brilho (glow neon) e preferências visuais.
 """
+
+import logging
+logger = logging.getLogger(__name__)
+
 from typing import Dict, List, Any
 from agente.providers_manager import obter_preferencia, salvar_preferencia
 

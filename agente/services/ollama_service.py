@@ -140,7 +140,6 @@ class OllamaService(BaseService):
 
 def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: int = 5, model: str = None, service=None):
     from agente.services.tools_defs import OPENAI_TOOLS_DECLARATION
-    import base64
 
     model_name = model or config.OLLAMA_MODEL
     formatted_messages = []

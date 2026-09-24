@@ -1,16 +1,18 @@
-import logging
-logger = logging.getLogger(__name__)
 """
 Módulo de Captura e Otimização de Imagem para Wayland / Hyprland e X11.
 Realiza capturas ultrarrápidas em memória e otimiza para envio a modelos de visão.
 """
+
+import logging
+logger = logging.getLogger(__name__)
+
 
 import io
 import json
 import os
 import shutil
 import subprocess
-from typing import Optional, Tuple
+from typing import Optional
 from PIL import Image
 from . import config
 

@@ -1,9 +1,11 @@
-import logging
-logger = logging.getLogger(__name__)
 """
 Módulo de Análise e Varredura de Pastas e Arquivos Locais.
 Gera árvore de diretórios inteligente, lê arquivos-chave (README, configs) e prepara contexto para a IA.
 """
+
+import logging
+logger = logging.getLogger(__name__)
+
 
 import os
 from pathlib import Path

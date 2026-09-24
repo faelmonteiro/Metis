@@ -3,8 +3,6 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from html.parser import HTMLParser
 
-import httpx
-
 from agente import config
 from agente.utils import limitar_texto
 

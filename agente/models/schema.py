@@ -2,7 +2,7 @@
 Modelos de dados e validação para config_models.json.
 """
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Any
 
 
 @dataclass

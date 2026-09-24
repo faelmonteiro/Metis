@@ -67,7 +67,7 @@ def _handle_error(res, model: str = None):
 
 
 
-from agente.services.base import BaseService, parse_openai_sse_stream, process_tool_calls_map
+from agente.services.base import parse_openai_sse_stream, process_tool_calls_map
 
 def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: int = 5, model: str = None, service=None):
     """Gera resposta via streaming SSE da Groq API (formato OpenAI)."""

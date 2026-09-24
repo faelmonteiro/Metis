@@ -4,7 +4,6 @@ CLI simplificado para gerenciar modelos do Metis.
 Delegação para agente.models.cli (nova arquitetura centralizada).
 """
 import sys
-import os
 from pathlib import Path
 
 # Adiciona path do Metis principal (resolve symlinks)

@@ -6,7 +6,6 @@ escolhidos no Metis (7 temas: Metis Oracle, Olimpo Sagrado, Valhalla & Runas, Dr
 
 import sys
 from pathlib import Path
-from typing import Dict, Any, Tuple, Optional
 
 # Importa definições oficiais de temas do Metis
 metis_root = Path(__file__).parent.parent

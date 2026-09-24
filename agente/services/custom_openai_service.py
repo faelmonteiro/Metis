@@ -5,7 +5,6 @@ com suporte completo a streaming, ferramentas (tool calling), visão/mídia e tr
 import json
 import logging
 import os
-import re
 from typing import Iterator
 
 import httpx
