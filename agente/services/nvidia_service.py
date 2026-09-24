@@ -1,9 +1,15 @@
+import json
 import logging
 
 import httpx
 
 from agente import config
-from agente.services.base import BaseService, parse_openai_sse_stream
+from agente.services.base import (
+    BaseService,
+    NonRetriableAPIError,
+    RetriableAPIError,
+    parse_openai_sse_stream,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,12 +44,32 @@ def _build_request(mensagens: list, stream: bool = False, model: str = None) -> 
 
 
 def _handle_error(res):
-    """Trata erros HTTP da NVIDIA API."""
-    if res.status_code == 401:
-        raise RuntimeError("NVIDIA_API_KEY inválida.")
-    if res.status_code == 429:
-        raise RuntimeError("Rate limit da NVIDIA API atingido.")
-    res.raise_for_status()
+    """Trata erros HTTP da NVIDIA API com mensagens claras em PT-BR.
+
+    Levanta exceção de domínio comum (NonRetriableAPIError/RetriableAPIError),
+    de forma coerente com Groq e CustomOpenAI — nunca deixa o httpx vazar cru.
+    """
+    if res.status_code != 200:
+        body = ""
+        try:
+            body = res.read().decode("utf-8", errors="replace")
+        except Exception as _silent_e:
+            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+        try:
+            err_json = json.loads(body)
+            msg = err_json.get("error", {}).get("message") or body
+        except Exception:
+            msg = body or f"HTTP {res.status_code}"
+        msg = str(msg).strip()
+        if res.status_code == 401:
+            raise NonRetriableAPIError(f"NVIDIA API (401): NVIDIA_API_KEY inválida ou expirada. {msg}".strip())
+        if res.status_code == 403:
+            raise NonRetriableAPIError(f"NVIDIA API (403): Acesso negado. {msg}".strip())
+        if res.status_code == 404:
+            raise NonRetriableAPIError(f"NVIDIA API (404): Recurso ou modelo não encontrado. {msg}".strip())
+        if res.status_code == 429 or 500 <= res.status_code < 600:
+            raise RetriableAPIError(f"NVIDIA API ({res.status_code}): {msg}")
+        raise NonRetriableAPIError(f"NVIDIA API ({res.status_code}): {msg}")
 
 
 

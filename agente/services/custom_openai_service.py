@@ -10,7 +10,14 @@ from typing import Iterator
 import httpx
 
 from agente import config
-from agente.services.base import BaseService, RetriableAPIError, parse_openai_sse_stream, process_tool_calls_map
+from agente.services.base import (
+    BaseService,
+    NonRetriableAPIError,
+    RetriableAPIError,
+    calcular_espera_retry_after,
+    parse_openai_sse_stream,
+    process_tool_calls_map,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -107,10 +114,14 @@ class CustomOpenAIService(BaseService):
                 msg = f"HTTP {res.status_code}"
             if res.status_code == 429 or 500 <= res.status_code < 600:
                 raise RetriableAPIError(f"{self.nome} API ({res.status_code}): {msg}")
-            raise RuntimeError(f"{self.nome} API ({res.status_code}): {msg}")
+            raise NonRetriableAPIError(f"{self.nome} API ({res.status_code}): {msg}")
 
     def gerar_resposta_stream(self, mensagens: list, iteration: int = 0, max_iterations: int = 5) -> Iterator[str]:
+        """Entrada pública: reseta o abort e delega ao loop interno."""
         self._aborted = False
+        return self._stream_interno(mensagens, iteration=iteration, max_iterations=max_iterations)
+
+    def _stream_interno(self, mensagens: list, iteration: int = 0, max_iterations: int = 5) -> Iterator[str]:
         headers, payload = self._build_request(mensagens, stream=True)
 
         from agente.services.http_client import get_http_client
@@ -126,6 +137,7 @@ class CustomOpenAIService(BaseService):
                 logger.info("%s: %s (tentativa %d/%d) — aguardando %.1fs", self.nome, motivo, attempt + 1, retries, espera)
                 time.sleep(espera)
             else:
+                logger.debug("%s: teto de 90s de retentativas atingido", self.nome)
                 raise RuntimeError(f"{self.nome}: teto de 90s de retentativas atingido")
 
         for attempt in range(retries):
@@ -138,7 +150,18 @@ class CustomOpenAIService(BaseService):
                     self._active_stream = res
                     try:
                         if res.status_code == 429 and attempt < retries - 1:
-                            _espera_retry(3.0, "rate-limit (429)", attempt)
+                            try:
+                                res.read()
+                            except Exception as _silent_e:
+                                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+                            espera = calcular_espera_retry_after(res, padrao=3.0)
+                            try:
+                                ra_raw = res.headers.get("Retry-After", "").strip()
+                                if ra_raw.isdigit() and float(ra_raw) > 90.0:
+                                    logger.debug("%s: Retry-After=%ss excede o teto de 90s", self.nome, ra_raw)
+                            except Exception as _silent_e:
+                                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+                            _espera_retry(espera, "rate-limit (429)", attempt)
                             continue
                         if res.status_code in (400, 404) and "tools" in payload:
                             try:
@@ -171,4 +194,4 @@ class CustomOpenAIService(BaseService):
                 return
 
             process_tool_calls_map(tool_calls_map, mensagens, iteration=iteration)
-            yield from self.gerar_resposta_stream(mensagens, iteration=iteration + 1, max_iterations=max_iterations)
+            yield from self._stream_interno(mensagens, iteration=iteration + 1, max_iterations=max_iterations)

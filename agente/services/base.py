@@ -10,6 +10,34 @@ class RetriableAPIError(RuntimeError):
     pass
 
 
+class NonRetriableAPIError(RuntimeError):
+    """Erro HTTP definitivo (401/403/404/outros 4xx) exibido como mensagem amigável."""
+    pass
+
+
+def calcular_espera_retry_after(res, padrao: float = 3.0, teto: float = 90.0) -> float:
+    """Respeita o header Retry-After (segundos ou data) com teto de `teto` segundos.
+
+    Retorna `padrao` quando o header está ausente ou é inválido.
+    """
+    try:
+        headers = getattr(res, "headers", None)
+        raw = (headers.get("Retry-After", "") if headers else "").strip()
+        if not raw:
+            return padrao
+        if raw.isdigit():
+            return min(max(float(raw), padrao), teto)
+        from email.utils import parsedate_to_datetime
+        date_header = headers.get("Date", "") if headers else ""
+        if date_header:
+            diff = (parsedate_to_datetime(raw) - parsedate_to_datetime(date_header)).total_seconds()
+            if diff > 0:
+                return min(diff, teto)
+    except Exception as _silent_e:
+        logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+    return padrao
+
+
 class BaseService(ABC):
     def __init__(self):
         self._active_stream = None

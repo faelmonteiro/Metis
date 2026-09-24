@@ -6,7 +6,12 @@ import re
 import httpx
 
 from agente import config
-from agente.services.base import BaseService, RetriableAPIError
+from agente.services.base import (
+    BaseService,
+    NonRetriableAPIError,
+    RetriableAPIError,
+    calcular_espera_retry_after,
+)
 
 API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
@@ -62,7 +67,7 @@ def _handle_error(res, model: str = None):
             msg = f"{msg}\n[Dica] O modelo atual do Groq ({m_name}) é de texto puro e não suporta imagens. Use '/modelo gemini' para visão multimodal."
         if res.status_code == 429 or 500 <= res.status_code < 600:
             raise RetriableAPIError(f"Groq API ({res.status_code}): {msg}")
-        raise RuntimeError(f"Groq API ({res.status_code}): {msg}")
+        raise NonRetriableAPIError(f"Groq API ({res.status_code}): {msg}")
 
 
 
@@ -87,6 +92,7 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
             logger.info("Groq: %s (tentativa %d/%d) — aguardando %.1fs", motivo, attempt + 1, retries, espera)
             time.sleep(espera)
         else:
+            logger.debug("Groq: teto de 90s de retentativas atingido")
             raise RuntimeError("Groq: teto de 90s de retentativas atingido")
 
     for attempt in range(retries):
@@ -100,12 +106,18 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
                     service._active_stream = res
                 try:
                     if res.status_code == 429 and attempt < retries - 1:
-                        espera = 3.0
+                        espera = calcular_espera_retry_after(res, padrao=3.0)
                         try:
                             corpo = res.read().decode("utf-8")
                             m = re.search(r"try again in ([\d\.]+)s", corpo)
                             if m:
-                                espera = max(float(m.group(1)) + 1.0, 3.0)
+                                espera = max(espera, float(m.group(1)) + 1.0)
+                        except Exception as _silent_e:
+                            logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+                        try:
+                            ra_raw = res.headers.get("Retry-After", "").strip()
+                            if ra_raw.isdigit() and float(ra_raw) > 90.0:
+                                logger.debug("Groq: Retry-After=%ss excede o teto de 90s", ra_raw)
                         except Exception as _silent_e:
                             logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
                         _espera_retry(espera, "rate-limit (429)", attempt)
