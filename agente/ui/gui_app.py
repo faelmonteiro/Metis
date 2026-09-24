@@ -155,8 +155,9 @@ class AIWorker(QThread):
         register_tool_listener(on_tool_event)
 
         try:
-            # Em modo GUI, habilita auto-approve seguro de escrita/edição para não travar em stdin
-            tools_defs.AUTO_APPROVE_MODE = True
+            # Em modo GUI, habilita auto-approve seguro de escrita/edição para não travar em stdin.
+            # O valor é por-thread (thread-local), então workers concorrentes não se desligam.
+            tools_defs.definir_auto_approve(True)
 
             from agente.utils import detectar_intencao_busca
             from agente.services.searxng_service import buscar_web
@@ -294,7 +295,7 @@ class AIWorker(QThread):
             self.error_occurred.emit(str(e))
         finally:
             unregister_tool_listener(on_tool_event)
-            tools_defs.AUTO_APPROVE_MODE = False
+            tools_defs.definir_auto_approve(False)
 
 
 # -----------------------------------------------------------------------------
@@ -311,14 +312,14 @@ class CommandWorker(QThread):
 
     def run(self):
         from agente.services import tools_defs
-        tools_defs.AUTO_APPROVE_MODE = True
+        tools_defs.definir_auto_approve(True)
         try:
             saida = tools_defs.executar_comando(self.comando)
             self.finished.emit(self.comando, saida)
         except Exception as e:
             self.error_occurred.emit(str(e))
         finally:
-            tools_defs.AUTO_APPROVE_MODE = False
+            tools_defs.definir_auto_approve(False)
 
 
 # -----------------------------------------------------------------------------

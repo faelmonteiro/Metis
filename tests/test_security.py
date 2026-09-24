@@ -72,6 +72,58 @@ class TestSecurity(unittest.TestCase):
         res = ler_arquivo("~/.ssh/id_rsa")
         self.assertIn("Acesso negado", res)
 
+    def test_auto_approve_por_thread_nao_vaza(self):
+        import threading
+        from agente.services import tools_defs
+
+        resultados = {}
+        barreira = threading.Barrier(2)
+        erros = []
+
+        def worker(nome, valor):
+            try:
+                tools_defs.definir_auto_approve(valor)
+                barreira.wait()
+                resultados[nome] = tools_defs.auto_approve_habilitado()
+            except Exception as e:  # pragma: no cover
+                erros.append(e)
+
+        t1 = threading.Thread(target=worker, args=("a", True))
+        t2 = threading.Thread(target=worker, args=("b", False))
+        t1.start(); t2.start(); t1.join(); t2.join()
+        self.assertFalse(erros)
+        self.assertTrue(resultados["a"])
+        self.assertFalse(resultados["b"])
+        self.assertNotIn("a", "b")
+
+    def test_auto_approve_global_fallback_funciona(self):
+        from agente.services import tools_defs
+        try:
+            tools_defs.AUTO_APPROVE_MODE = True
+            self.assertTrue(tools_defs.auto_approve_habilitado())
+            self.assertTrue(tools_defs.AUTO_APPROVE_MODE)
+        finally:
+            if "AUTO_APPROVE_MODE" in vars(tools_defs):
+                del tools_defs.AUTO_APPROVE_MODE
+
+    def test_escrita_negada_sem_auto_approve_e_sem_stdin(self):
+        import io
+        import sys
+        import tempfile
+        from pathlib import Path
+        from agente.services import tools_defs
+
+        stdin_original = sys.stdin
+        sys.stdin = io.StringIO("")  # sem isatty() -> confirmação devolve False (como no GUI)
+        try:
+            with tempfile.TemporaryDirectory(dir=".") as d:
+                alvo = Path(d) / "novo_m3.txt"
+                res = tools_defs.escrever_arquivo(str(alvo), "conteudo")
+                self.assertIn("Ação negada", res)
+                self.assertFalse(alvo.exists())
+        finally:
+            sys.stdin = stdin_original
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -2,10 +2,49 @@ import os
 import re
 import json
 import subprocess
+import sys
+import threading
 from pathlib import Path
 from agente import config
 from agente.colors import RED, GREEN, YELLOW, CYAN, BOLD, RESET
 from agente.utils import caminho_leitura_seguro
+
+# ---------------------------------------------------------------------------
+# Modo auto-approve por contexto (thread-local) em vez de flag global.
+#
+# Antes, "AUTO_APPROVE_MODE" era uma flag global no módulo: o AIWorker ligava
+# em run() e desligava em finally(). Com dois QThreads concorrentes, um worker
+# desligava a permissão do outro no meio da execução, fazendo ferramentas de
+# escrita/edição serem NEGADAS mesmo no GUI (que não tem stdin interativo).
+#
+# Agora cada thread tem seu próprio valor. A flag global continua funcionando
+# como fallback para o comando "/automode" (CLI) e para os testes.
+# ---------------------------------------------------------------------------
+_auto_approve_context = threading.local()
+
+
+def definir_auto_approve(valor: bool) -> None:
+    """Define o auto-approve apenas no contexto da thread atual."""
+    _auto_approve_context.ativo = bool(valor)
+
+
+def auto_approve_habilitado() -> bool:
+    """True se o auto-approve estiver ativo no contexto atual.
+
+    Prioriza o valor da thread; se nenhuma thread definiu, respeita a flag
+    global AUTO_APPROVE_MODE (ex.: /automode no CLI e testes).
+    """
+    valor = getattr(_auto_approve_context, "ativo", None)
+    if valor is not None:
+        return valor
+    mod = sys.modules[__name__]
+    return bool(vars(mod).get("AUTO_APPROVE_MODE", False))
+
+
+def __getattr__(name: str):
+    if name == "AUTO_APPROVE_MODE":
+        return auto_approve_habilitado()
+    raise AttributeError(f"módulo {__name__!r} não possui o atributo {name!r}")
 
 def _resolver_caminho_amigavel(caminho_str: str) -> str:
     """
@@ -129,10 +168,8 @@ def escrever_arquivo(caminho: str, conteudo: str) -> str:
         path = caminho_leitura_seguro(caminho)
     except Exception as e:
         return f"Acesso negado para escrita: {e}"
-    
-    import sys
-    this_module = sys.modules[__name__]
-    auto = getattr(this_module, "AUTO_APPROVE_MODE", False)
+
+    auto = auto_approve_habilitado()
     
     if auto:
         print(f"\n{YELLOW}⚠️ Auto-approve ativado. Salvando arquivo: {BOLD}{path}{RESET}")
@@ -170,9 +207,7 @@ def editar_arquivo(caminho: str, trecho_antigo: str, trecho_novo: str) -> str:
     if trecho_antigo not in conteudo:
         return f"Erro: O trecho antigo especificado não foi encontrado exatamente dentro do arquivo {path.name}."
 
-    import sys
-    this_module = sys.modules[__name__]
-    auto = getattr(this_module, "AUTO_APPROVE_MODE", False)
+    auto = auto_approve_habilitado()
 
     print(f"\n{YELLOW}📝 A IA quer fazer uma edição cirúrgica em: {BOLD}{path}{RESET}")
     print(f"{CYAN}--- Preview da Alteração (Diff) ---{RESET}")
@@ -209,10 +244,8 @@ def gerar_pdf(caminho_destino: str, texto: str) -> str:
         
     if not path.name.lower().endswith(".pdf"):
         path = path.with_suffix(".pdf")
-        
-    import sys
-    this_module = sys.modules[__name__]
-    auto = getattr(this_module, "AUTO_APPROVE_MODE", False)
+
+    auto = auto_approve_habilitado()
     
     if auto:
         print(f"\n{YELLOW}⚠️ Auto-approve ativado. Gerando PDF em: {BOLD}{path}{RESET}")
@@ -340,9 +373,7 @@ def executar_comando(comando: str, diretorio: str = ".") -> str:
     if not cwd_path.exists() or not cwd_path.is_dir():
         return f"Erro: Diretório de execução {diretorio} não existe."
 
-    import sys
-    this_module = sys.modules[__name__]
-    auto = getattr(this_module, "AUTO_APPROVE_MODE", False)
+    auto = auto_approve_habilitado()
 
     cmd_clean = comando.strip()
     cmd_lower = cmd_clean.lower()
