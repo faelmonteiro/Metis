@@ -58,6 +58,11 @@ from agente.models import (
 # Aliases de compatibilidade
 CONFIG_PATH = CONFIG_FILE
 
+
+def get_config_path() -> str:
+    """Retorna o caminho do arquivo de configuração central (config_models.json)."""
+    return str(CONFIG_FILE)
+
 PROVIDER_ICONS = {
     "nvidia": "⚡",
     "gemini": "💎",
