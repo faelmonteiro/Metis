@@ -113,7 +113,6 @@ class CustomServerDialog(QDialog):
             f_layout.addWidget(lbl)
 
             inp = QLineEdit()
-            inp.setProperty("class", "KeyInput")
             if senha:
                 inp.setEchoMode(QLineEdit.EchoMode.Password)
             # So a URL tem padrao; as demais caem em string vazia.
@@ -315,7 +314,6 @@ class ModernAddModelDialog(QDialog):
         """O campo do identificador. `submit_model` le via `self.inp_model`."""
         # Campo de entrada com estilo e placeholder
         self.inp_model = QLineEdit()
-        self.inp_model.setProperty("class", "KeyInput")
         self.inp_model.setFixedHeight(36)
         self.inp_model.setPlaceholderText("ex: deepseek/deepseek-chat ou meta-llama/llama-3.3-70b-instruct")
         self.inp_model.returnPressed.connect(self.submit_model)
@@ -506,7 +504,6 @@ class ModernRemoveModelDialog(QDialog):
         row_inp.setSpacing(6)
 
         self.inp_api_key = QLineEdit()
-        self.inp_api_key.setProperty("class", "KeyInput")
         self.inp_api_key.setText(self.current_key)
         self.inp_api_key.setPlaceholderText(f"Cole sua chave ou URL para {self.env_name}...")
         if self.is_password:

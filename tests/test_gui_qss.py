@@ -12,12 +12,14 @@ arquivo le o CSS de verdade e confere o que quebra em silencio:
 4. o texto do tema tem contraste suficiente, lido do CSS gerado e nao de
    constante.
 
-O ponto (3) tem um caso hoje: `KeyInput` e atribuida em 5 widgets (campos de
-chave de API, de modelo e de servidor) e nao aparece em nenhum seletor. Nao e
-bug visual — a regra generica de `QLineEdit` existe em
-`agente/ui/theme_manager.py:630` e cobre esses campos. E metadado enganoso:
-a impressao digital da arvore registra a classe, entao o teste "prova" que o
-estilo do campo esta preservado sem nunca checar que ele existe.
+O ponto (3) teve um caso e ele foi resolvido: `KeyInput` era atribuida em 5
+widgets (campos de chave de API, de modelo e de servidor) sem aparecer em
+nenhum seletor. Nao era bug visual — a regra generica de `QLineEdit` existe em
+`agente/ui/theme_manager.py:630` e cobre esses campos. Era metadado enganoso:
+a impressao digital da arvore registrava a classe, entao o teste "provava" que
+o estilo do campo estava preservado sem nunca checar que ele existe. A
+propriedade foi removida e a lista de classes mortas esta vazia; o teste abaixo
+impede que a proxima apareca sem estilo.
 
 Nenhum teste aqui precisa da janela: o QSS e uma string. Rodam em
 milissegundos e sobrevivem a mudancas de layout.
@@ -33,13 +35,18 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 RAIZ = Path(__file__).resolve().parent.parent
 
 # Classe atribuida a widgets e sem seletor no QSS, com o motivo e a data.
-# Corrigir o estilo de verdade e apagar a entrada daqui: o teste falha ate
-# voce apagar. Um item desta lista que ganhar seletor tambem faz o teste
-# falhar, para a lista nao virar mentira.
-CLASSES_SEM_SELETOR_CONHECIDO = {
-    # 5 usos: dialogs/apis.py, dialogs/providers.py (x3), dialogs/agent_options.py
-    "KeyInput": "2026-09-25: sem seletor; campos herdam a regra generica de QLineEdit",
-}
+# Corrigir o estilo de verdade e apagar a entrada daqui: o teste falha ate voce
+# apagar. Um item desta lista que ganhar seletor tambem faz o teste falhar,
+# para a lista nao virar mentira.
+#
+# Vazia de proposito. `KeyInput` morava aqui — marcada em 5 widgets (campos de
+# chave de API, de modelo e de servidor) e sem seletor nenhum. Nao era bug
+# visual, porque a regra generica de `QLineEdit` cobre esses campos. Era
+# metadado que enganava: a impressao digital registrava a classe e portanto
+# "provava" que o estilo do campo estava preservado, sem nunca checar que o
+# estilo existe. A propriedade foi removida dos 5 lugares; a lista fica vazia
+# ate alguem querer um estilo proprio para campo de chave.
+CLASSES_SEM_SELETOR_CONHECIDO: dict[str, str] = {}
 
 # Conjunto de classes que o QSS de fato declara. E uma trava de queda, nao uma
 #restricao de design:Classes novas podem entrar livremente, mas uma destas sumir

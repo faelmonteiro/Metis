@@ -15,7 +15,7 @@ QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 671, 220)||True||||||
 QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 178, 643, 31)||True||||||
 QLabel||QFrame:|PyQt6.QtCore.QRect(15, 13, 643, 17)|True|True|🧠  PERSONALIDADE & DIRETRIZES DO AGENTE|color: #f0a85d; background: transparent;||||
 QLabel||QFrame:|PyQt6.QtCore.QRect(15, 38, 643, 17)|True|True|Instruções personalizadas (System Prompt Customizado):|color: #cbd5e1; background: transparent;||||
-QPlainTextEdit||QFrame:|PyQt6.QtCore.QRect(15, 63, 643, 75)|True|True||||Ex: Responda em português brasileiro de forma técnica e objetiva. Priorize atalhos e comandos para Hyprland e Arch Linux...|KeyInput|
+QPlainTextEdit||QFrame:|PyQt6.QtCore.QRect(15, 63, 643, 75)|True|True||||Ex: Responda em português brasileiro de forma técnica e objetiva. Priorize atalhos e comandos para Hyprland e Arch Linux...||
 QWidget|qt_scrollarea_viewport|QPlainTextEdit:|PyQt6.QtCore.QRect(11, 6, 621, 63)|True|True||||||
 QWidget|qt_scrollarea_hcontainer|QPlainTextEdit:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||
 QScrollBar||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True||||||

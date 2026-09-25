@@ -16,7 +16,7 @@ QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 11, 623, 17)||True||||||
 QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 34, 623, 33)||True||||||
 QLabel||QFrame:|PyQt6.QtCore.QRect(15, 11, 167, 17)|True|True|✨  GOOGLE GEMINI API KEY|color: #f0a85d; background: transparent;||||
 QLabel||QFrame:|PyQt6.QtCore.QRect(558, 11, 80, 17)|True|True|● Configurada|color: #4ade80;||||
-QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 34, 543, 33)|True|True|<CHAVE_MASCARADA>|||Digite ou cole sua GEMINI_API_KEY...|KeyInput|EchoMode.Password
+QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 34, 543, 33)|True|True|<CHAVE_MASCARADA>|||Digite ou cole sua GEMINI_API_KEY...||EchoMode.Password
 QObject||QLineEdit:|||||||||
 QPushButton||QFrame:|PyQt6.QtCore.QRect(564, 40, 36, 20)|True|True|👁️||||ActionChip|
 QPushButton||QFrame:|PyQt6.QtCore.QRect(606, 38, 32, 25)|True|True|✕||||ActionChip|
@@ -27,7 +27,7 @@ QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 11, 623, 17)||True||||||
 QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 34, 623, 33)||True||||||
 QLabel||QFrame:|PyQt6.QtCore.QRect(15, 11, 148, 17)|True|True|⚡  GROQ CLOUD API KEY|color: #f0a85d; background: transparent;||||
 QLabel||QFrame:|PyQt6.QtCore.QRect(558, 11, 80, 17)|True|True|● Configurada|color: #4ade80;||||
-QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 34, 543, 33)|True|True|<CHAVE_MASCARADA>|||Digite ou cole sua GROQ_API_KEY...|KeyInput|EchoMode.Password
+QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 34, 543, 33)|True|True|<CHAVE_MASCARADA>|||Digite ou cole sua GROQ_API_KEY...||EchoMode.Password
 QObject||QLineEdit:|||||||||
 QPushButton||QFrame:|PyQt6.QtCore.QRect(564, 40, 36, 20)|True|True|👁️||||ActionChip|
 QPushButton||QFrame:|PyQt6.QtCore.QRect(606, 38, 32, 25)|True|True|✕||||ActionChip|
@@ -38,7 +38,7 @@ QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 11, 623, 17)||True||||||
 QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 34, 623, 33)||True||||||
 QLabel||QFrame:|PyQt6.QtCore.QRect(15, 11, 141, 17)|True|True|🟢  NVIDIA NIM API KEY|color: #f0a85d; background: transparent;||||
 QLabel||QFrame:|PyQt6.QtCore.QRect(558, 11, 80, 17)|True|True|● Configurada|color: #4ade80;||||
-QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 34, 543, 33)|True|True|<CHAVE_MASCARADA>|||Digite ou cole sua NVIDIA_API_KEY...|KeyInput|EchoMode.Password
+QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 34, 543, 33)|True|True|<CHAVE_MASCARADA>|||Digite ou cole sua NVIDIA_API_KEY...||EchoMode.Password
 QObject||QLineEdit:|||||||||
 QPushButton||QFrame:|PyQt6.QtCore.QRect(564, 40, 36, 20)|True|True|👁️||||ActionChip|
 QPushButton||QFrame:|PyQt6.QtCore.QRect(606, 38, 32, 25)|True|True|✕||||ActionChip|
@@ -49,7 +49,7 @@ QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 11, 623, 17)||True||||||
 QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 34, 623, 33)||True||||||
 QLabel||QFrame:|PyQt6.QtCore.QRect(15, 11, 150, 17)|True|True|🌐  OPENROUTER API KEY|color: #f0a85d; background: transparent;||||
 QLabel||QFrame:|PyQt6.QtCore.QRect(558, 11, 80, 17)|True|True|● Configurada|color: #4ade80;||||
-QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 34, 543, 33)|True|True|<CHAVE_MASCARADA>|||Digite ou cole sua OPENROUTER_API_KEY...|KeyInput|EchoMode.Password
+QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 34, 543, 33)|True|True|<CHAVE_MASCARADA>|||Digite ou cole sua OPENROUTER_API_KEY...||EchoMode.Password
 QObject||QLineEdit:|||||||||
 QPushButton||QFrame:|PyQt6.QtCore.QRect(564, 40, 36, 20)|True|True|👁️||||ActionChip|
 QPushButton||QFrame:|PyQt6.QtCore.QRect(606, 38, 32, 25)|True|True|✕||||ActionChip|

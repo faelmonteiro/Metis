@@ -118,7 +118,6 @@ class ModernAgentOptionsDialog(QDialog):
         l_behav.addWidget(lbl_sp)
 
         self.txt_system_prompt = QPlainTextEdit()
-        self.txt_system_prompt.setProperty("class", "KeyInput")
         self.txt_system_prompt.setFixedHeight(75)
         self.txt_system_prompt.setPlaceholderText(
             "Ex: Responda em português brasileiro de forma técnica e objetiva. Priorize atalhos e comandos para Hyprland e Arch Linux..."

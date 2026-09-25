@@ -236,7 +236,6 @@ class ModernApisDialog(QDialog):
         input_row.setSpacing(6)
 
         inp = QLineEdit()
-        inp.setProperty("class", "KeyInput")
         inp.setText(current_value or "")
         inp.setPlaceholderText(f"Digite ou cole sua {env_name}...")
         if is_password:

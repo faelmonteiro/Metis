@@ -12,7 +12,7 @@ QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 11, 570, 21)||True||||||
 QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 40, 570, 33)||True||||||
 QLabel||QFrame:|PyQt6.QtCore.QRect(15, 11, 280, 21)|True|True|🔑 Chave de Conexão (GROQ_API_KEY)|color: #fad094; background: transparent;||||
 QLabel||QFrame:|PyQt6.QtCore.QRect(488, 11, 97, 21)|True|True|● Configurada||||StatusPillActive|
-QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 40, 410, 33)|True|True|<CHAVE_MASCARADA>|||Cole sua chave ou URL para GROQ_API_KEY...|KeyInput|EchoMode.Password
+QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 40, 410, 33)|True|True|<CHAVE_MASCARADA>|||Cole sua chave ou URL para GROQ_API_KEY...||EchoMode.Password
 QObject||QLineEdit:|||||||||
 QPushButton||QFrame:|PyQt6.QtCore.QRect(431, 46, 36, 20)|True|True|👁️||||ActionChip|
 QPushButton||QFrame:|PyQt6.QtCore.QRect(473, 42, 112, 29)|True|True|💾 Salvar Chave||||PrimaryBtn|

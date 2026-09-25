@@ -145,16 +145,21 @@ class TestCartaoDeChave(unittest.TestCase):
         self.assertIn(_TEXTO_BOTAO_OLHO, textos)
         self.assertEqual(campo.echoMode(), campo.EchoMode.Password)
 
-    def test_classe_do_campo_e_KeyInput(self):
-        """A classe e a mesma nos quatro cartoes.
+    def test_o_campo_nao_carrega_classe_morta(self):
+        """Nenhuma classe sem estilo pode sobrar no cartao.
 
-        `KeyInput` nao tem seletor no QSS — ver `test_gui_qss.py`, que mantem a
-        lista de classes mortas. Este teste existe para mostrar que a marca nao
-        sumiu em um cartao so.
+        `KeyInput` foi removida destes campos: nao tinha seletor no QSS, e a
+        impressao digital a registrava como se estivesse estilizada. O
+        `test_gui_qss.py` agora impede que uma classe morta nova apareca — e
+        este impede que ela volte pelos caminhos deste dialogo.
         """
         dlg = self._abrir()
         for campo in _campos(dlg):
-            self.assertEqual(campo.property("class"), "KeyInput")
+            self.assertFalse(
+                campo.property("class"),
+                f"o campo voltou a carregar a classe {campo.property('class')!r}, "
+                "que nao tem seletor no QSS",
+            )
 
     # --- selo de servidor removido ------------------------------------------
 
