@@ -561,7 +561,10 @@ class ChatMixin:
             btn_copy_all = QPushButton("❐ Copiar Todos")
             btn_copy_all.setProperty("class", "ActionChip")
 
-            def copy_all_action(cmds=comandos_puros, b=btn_copy_all):
+            def copy_all_action(_checked, cmds=comandos_puros, b=btn_copy_all):
+                # `_checked` primeiro: `clicked` emite um bool e o PyQt o
+                # entregaria em `cmds`, e `"\n".join(False)` levanta TypeError
+                # — que, vindo de um slot, aborta o processo.
                 texto_junto = "\n".join(cmds)
                 if copiar_para_area_de_transferencia(texto_junto):
                     b.setText("✓ Todos Copiados!")
@@ -747,7 +750,7 @@ class ChatMixin:
         btn_copy.setToolTip("Copiar resposta")
         btn_copy.setCursor(Qt.CursorShape.PointingHandCursor)
 
-        def copy_text(l=None):
+        def copy_text(_checked):
             try:
                 # `_raw_text`, não o texto renderizado: markdown vira HTML e
                 # copiaria as tags junto.

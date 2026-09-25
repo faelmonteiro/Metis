@@ -293,7 +293,10 @@ class SessionsMixin:
 
             btn_rewind = QPushButton("⏪ Continuar daqui (Apagar posteriores)")
             btn_rewind.setProperty("class", "ActionChip")
-            def rewind_to(i=idx):
+            def rewind_to(_checked, i=idx):
+                # `False == 0` em Python: sem o `_checked` explicito, o PyQt
+                # entregava o bool do `clicked` em `i` e "Continuar daqui"
+                # truncava sempre no turno 0, apagando o resto da conversa.
                 if self.history_manager.truncar_ate(i):
                     self.clear_chat_view()
                     for msg in self.history_manager.historico:
@@ -306,7 +309,9 @@ class SessionsMixin:
 
             btn_del_t = QPushButton("🗑️ Excluir Turno")
             btn_del_t.setProperty("class", "DangerBtn")
-            def delete_single(i=idx):
+            def delete_single(_checked, i=idx):
+                # Mesmo `False == 0`: "Excluir Turno" apagava o turno 0 em vez
+                # do turno da linha, sem nenhum aviso.
                 if self.history_manager.remover_turno(i):
                     self.render_current_turns()
                     self.refresh_telemetry()

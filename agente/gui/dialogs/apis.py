@@ -180,7 +180,7 @@ class ModernApisDialog(QDialog):
             btn_res = QPushButton("🔄 Reativar")
             btn_res.setProperty("class", "ActionChip")
             btn_res.setCursor(Qt.CursorShape.PointingHandCursor)
-            def _res_prov(pk=provider_key, lr=lbl_rem, br=btn_res):
+            def _res_prov(_checked, pk=provider_key, lr=lbl_rem, br=btn_res):
                 restaurar_servidor_provedor(pk)
                 lr.setText("● Reativado")
                 lr.setStyleSheet("color: #4ade80; background: #14532d; border-radius: 4px; padding: 2px 6px;")
@@ -206,7 +206,7 @@ class ModernApisDialog(QDialog):
             btn_toggle = QPushButton("👁️")
             btn_toggle.setFixedWidth(36)
             btn_toggle.setProperty("class", "ActionChip")
-            def toggle_echo(field=inp):
+            def toggle_echo(_checked, field=inp):
                 if field.echoMode() == QLineEdit.EchoMode.Password:
                     field.setEchoMode(QLineEdit.EchoMode.Normal)
                 else:
