@@ -158,39 +158,80 @@ class ModernApisDialog(QDialog):
         l.setContentsMargins(14, 10, 14, 10)
         l.setSpacing(6)
 
+        l.addLayout(self._cabecalho_do_campo_api(label_text, icon, current_value,
+                                                 provider_key))
+        input_row, inp = self._linha_de_entrada_api(current_value, env_name, is_password)
+        l.addLayout(input_row)
+
+        lbl_hint = QLabel(hint)
+        lbl_hint.setFont(QFont("Sans Serif", 8))
+        lbl_hint.setStyleSheet("color: #64748b; background: transparent;")
+        l.addWidget(lbl_hint)
+
+        parent_layout.addWidget(card)
+        return inp
+
+    def _cabecalho_do_campo_api(self, label_text, icon, current_value, provider_key):
+        """Nome do campo, se ha chave configurada e, quando o provedor foi
+        removido, o selo de ocultamento com o botao que reativa.
+
+        O selo e o botao sao um par: o handler esconde o botao e troca a cor do
+        selo ao reativar, entao vao juntos.
+        """
         h_row = QHBoxLayout()
+
         lbl_head = QLabel(f"{icon}  {label_text}")
         lbl_head.setFont(QFont("Sans Serif", 9, QFont.Weight.Bold))
         lbl_head.setStyleSheet("color: #f0a85d; background: transparent;")
         h_row.addWidget(lbl_head)
 
-        has_key = bool(current_value)
-        lbl_st = QLabel("● Configurada" if has_key else "○ Não configurada")
+        lbl_st = QLabel("● Configurada" if current_value else "○ Não configurada")
         lbl_st.setFont(QFont("Sans Serif", 8, QFont.Weight.Bold))
-        lbl_st.setStyleSheet("color: #4ade80;" if has_key else "color: #64748b;")
+        lbl_st.setStyleSheet("color: #4ade80;" if current_value else "color: #64748b;")
         h_row.addStretch()
         h_row.addWidget(lbl_st)
 
         if provider_key and is_servidor_removido(provider_key):
-            lbl_rem = QLabel("○ Ocultado da lista")
-            lbl_rem.setFont(QFont("Sans Serif", 8, QFont.Weight.Bold))
-            lbl_rem.setStyleSheet("color: #f87171; background: #450a0a; border-radius: 4px; padding: 2px 6px;")
+            lbl_rem, btn_res = self._selo_de_servidor_removido(provider_key)
             h_row.addWidget(lbl_rem)
-
-            btn_res = QPushButton("🔄 Reativar")
-            btn_res.setProperty("class", "ActionChip")
-            btn_res.setCursor(Qt.CursorShape.PointingHandCursor)
-            def _res_prov(_checked, pk=provider_key, lr=lbl_rem, br=btn_res):
-                restaurar_servidor_provedor(pk)
-                lr.setText("● Reativado")
-                lr.setStyleSheet("color: #4ade80; background: #14532d; border-radius: 4px; padding: 2px 6px;")
-                br.setVisible(False)
-                self.keys_saved.emit()
-            btn_res.clicked.connect(_res_prov)
             h_row.addWidget(btn_res)
 
-        l.addLayout(h_row)
+        return h_row
 
+    def _selo_de_servidor_removido(self, provider_key):
+        """O selo "Oculto da lista" e o botao que restaura o provedor.
+
+        Devolve os dois para quem os coloca na linha: um QHBoxLayout aninhado
+        aqui dentro acrescentaria um container com margens proprias e mudaria
+        a geometria do cabecalho.
+        """
+        lbl_rem = QLabel("○ Oculto da lista")
+        lbl_rem.setFont(QFont("Sans Serif", 8, QFont.Weight.Bold))
+        lbl_rem.setStyleSheet("color: #f87171; background: #450a0a; border-radius: 4px; padding: 2px 6px;")
+
+        btn_res = QPushButton("🔄 Reativar")
+        btn_res.setProperty("class", "ActionChip")
+        btn_res.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        def _res_prov(_checked, pk=provider_key, lr=lbl_rem, br=btn_res):
+            # O `_checked` nao e opcional: `clicked` emite um bool, e sem um
+            # primeiro parametro posicional o PyQt o entrega em `pk` — o botao
+            # restaurava o provedor de chave `False`.
+            restaurar_servidor_provedor(pk)
+            lr.setText("● Reativado")
+            lr.setStyleSheet("color: #4ade80; background: #14532d; border-radius: 4px; padding: 2px 6px;")
+            br.setVisible(False)
+            self.keys_saved.emit()
+
+        btn_res.clicked.connect(_res_prov)
+        return lbl_rem, btn_res
+
+    def _linha_de_entrada_api(self, current_value, env_name, is_password):
+        """O campo, o olho que mostra a chave e o X que limpa.
+
+        Devolve tambem o `QLineEdit`, e nao so o layout: quem chama precisa do
+        campo para ler o valor na hora de salvar.
+        """
         input_row = QHBoxLayout()
         input_row.setSpacing(6)
 
@@ -206,11 +247,17 @@ class ModernApisDialog(QDialog):
             btn_toggle = QPushButton("👁️")
             btn_toggle.setFixedWidth(36)
             btn_toggle.setProperty("class", "ActionChip")
+
             def toggle_echo(_checked, field=inp):
+                # Mesmo motivo do `_checked` em `_res_prov`. Sem ele, o PyQt
+                # entregava o bool do `clicked` em `field` e o handler quebrava
+                # com `AttributeError` — e excecao dentro de slot chamado do
+                # C++ aborta o processo inteiro, nao so o botao.
                 if field.echoMode() == QLineEdit.EchoMode.Password:
                     field.setEchoMode(QLineEdit.EchoMode.Normal)
                 else:
                     field.setEchoMode(QLineEdit.EchoMode.Password)
+
             btn_toggle.clicked.connect(toggle_echo)
             input_row.addWidget(btn_toggle)
 
@@ -220,15 +267,7 @@ class ModernApisDialog(QDialog):
         btn_clear.clicked.connect(lambda _, field=inp: field.clear())
         input_row.addWidget(btn_clear)
 
-        l.addLayout(input_row)
-
-        lbl_hint = QLabel(hint)
-        lbl_hint.setFont(QFont("Sans Serif", 8))
-        lbl_hint.setStyleSheet("color: #64748b; background: transparent;")
-        l.addWidget(lbl_hint)
-
-        parent_layout.addWidget(card)
-        return inp
+        return input_row, inp
 
     def save_all_keys(self):
         gemini_val = self.input_gemini.text().strip()

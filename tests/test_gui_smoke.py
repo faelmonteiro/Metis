@@ -131,8 +131,18 @@ def impressao_digital(janela, normalizar_tempo=True):
                 # `echoMode` so no QLineEdit, mas e o que garante que a chave de
                 # API fique mascarada; trocar por Normal nao acusava nada.
                 _atributo(obj, "echoMode", ""),
-                _atributo(obj, "sizeHint", ""),
-                _atributo(obj, "minimumSizeHint", ""),
+                # `sizeHint` e `minimumSizeHint` sao deliberadamente fora da
+                # impressao digital. Eles dependem da metrica da fonte, e o
+                # QSS pede `sans-serif` — um nome generico que o Qt resolve
+                # pelo que houver instalado. Aqui resolve para Noto Sans com
+                # `exactMatch() == False`; a baseline tinha sido gravada onde
+                # resolveu para outra fonte e dava 2px de diferenca nos dois
+                # eixos, num widget cujo codigo nao tinha mudado nada.
+                #
+                # Ou seja: o teste nao conseguia passar em duas maquinas, e
+                # ja falhava no commit. `geometry` continua no lugar e cobre
+                # o que importa de layout — e o QSS tem teste proprio agora,
+                # em `test_gui_qss.py`, que le a folha de estilo gerada.
             ]
         except RuntimeError:
             # Destruido no meio da varredura. `deleteLater` e usado bastante
@@ -157,17 +167,27 @@ METODOS_ESPERADOS = frozenset({
     "_criar_buffer_de_render",
     "_criar_cronometro",
     "_criar_worker",
+    # `stop_ai_generation` foi de 75 para 17 linhas. Estas sao as pecas que
+    # ele chamava inline: a tabela de sinais, os dois timers, o aviso do balao,
+    # o cronometro congelado e o foco. `_desligar_sinais_do_worker` le a mesma
+    # tabela de `_ligar_sinais_do_worker` — antes eram duas listas e o
+    # `search_started` ficava conectado apos o cancelamento.
+    "_congelar_cronometro_interrompido",
+    "_desligar_sinais_do_worker",
+    "_devolver_foco_ao_chat",
     "_fechar_cronometro",
     "_ia_ocupada",
     "_enfileirar",
     "_flush_render",
     "_ligar_sinais_do_worker",
+    "_marcar_balao_interrompido",
     "_on_chunk",
     "_on_error",
     "_on_finished",
     "_on_search_started",
     "_on_tool_finished",
     "_on_tool_started",
+    "_parar_timers_de_render",
     "_rotulo_do_cronometro",
     "_texto_do_usuario",
     "start_ai_query",

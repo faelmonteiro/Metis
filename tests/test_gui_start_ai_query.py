@@ -14,6 +14,7 @@ Escritos ANTES de qualquer refatoracao, contra o metodo como estava.
 """
 
 import os
+import time
 import unittest
 from unittest import mock
 
@@ -513,6 +514,180 @@ class TestStartAIQuery(unittest.TestCase):
         w = self._com_worker_rodando()
         w.handler("error_occurred")("falhou")
         self.assertTrue(self.win.btn_stop.isHidden())
+
+
+class TestStopAiGeneration(unittest.TestCase):
+    """`stop_ai_generation` era 75 linhas com dois padroes repetidos.
+
+    O que se verifica aqui e o contrato, nao a forma: depois de parar, nenhum
+    sinal do worker pode continuar conectado, os dois timers param, o balao
+    ganha o aviso uma vez so, e a fila e limpa.
+    """
+
+    def setUp(self):
+        self.win = _janela()
+        win = self.win
+        self.escritas = []
+        win.btn_stop = mock.Mock()
+        win.scroll_chat_to_bottom = mock.Mock()
+        win.refresh_telemetry = mock.Mock()
+        win.chat_input = mock.Mock()
+        win.query_queue = [{"pergunta": "nao vai rodar"}]
+        win._current_lbl_text = mock.Mock()
+        win._current_full_text = ["resposta parcial"]
+        win._current_ai_bubble = mock.Mock()
+        win._current_ai_bubble._lbl_timer = mock.Mock()
+        win._current_start_time = time.monotonic() - 3.0
+        win._current_timer_live = mock.Mock()
+        win._current_render_timer = mock.Mock()
+        win._current_pending_text = [""]
+        win._set_bubble_content = lambda lbl, txt: self.escritas.append(txt)
+
+    def _worker_parado(self):
+        """Um `AIWorker` de verdade, com sinais de verdade, sem thread.
+
+        `isRunning` e forcado para True porque o corpo do `stop` so age sobre
+        worker em andamento; sem isso o metodo inteiro seria pulado e o teste
+        passaria sem exercitar nada.
+        """
+        from agente.gui.workers import AIWorker
+
+        w = AIWorker(pergunta="p", history_manager=mock.Mock(), service=mock.Mock())
+        w.isRunning = lambda: True
+        return w
+
+    def test_todos_os_sinais_desconectam(self):
+        """O bug: a lista de desconexao tinha um item a menos que a de conexao.
+
+        Seis sinais eram conectados e cinco desconectados, entao
+        `search_started` sobrevivia ao cancelamento. Este teste falha se a
+        tabela perder um item, porque passa a comparar as duas pontas.
+        """
+        win = self.win
+        worker = self._worker_parado()
+        win.active_worker = worker
+        win._ligar_sinais_do_worker()
+        for sinal, _handler in win._SINAIS_DO_WORKER:
+            self.assertGreater(worker.receivers(getattr(worker, sinal)), 0,
+                               f"pre-condicao: {sinal} deveria estar conectado")
+
+        win.stop_ai_generation()
+
+        for sinal, _handler in win._SINAIS_DO_WORKER:
+            self.assertEqual(
+                worker.receivers(getattr(worker, sinal)), 0,
+                f"{sinal} continua conectado depois de parar",
+            )
+
+    def test_worker_ouvinte_ainda_esta_ligado(self):
+        """Confere que a tabela grew como a que os handlers esperam.
+
+        Se `_ligar_sinais_do_worker` passar a usar a tabela e a tabela ficar
+        errada, os sinais passam a nao conectar e este teste acusa.
+        """
+        win = self.win
+        worker = self._worker_parado()
+        win.active_worker = worker
+        win._ligar_sinais_do_worker()
+        ligados = [s for s, _h in win._SINAIS_DO_WORKER
+                   if worker.receivers(getattr(worker, sinal := s)) > 0]
+        self.assertEqual(ligados, [s for s, _ in win._SINAIS_DO_WORKER])
+
+    def test_os_dois_timers_param(self):
+        win = self.win
+        win.active_worker = self._worker_parado()
+        win.stop_ai_generation()
+        win._current_timer_live.stop.assert_called_once()
+        win._current_render_timer.stop.assert_called_once()
+
+    def test_timer_inexistente_nao_levanta(self):
+        """Chamar Parar antes da primeira consulta nao pode estourar.
+
+        Os atributos `_current_*` so existem depois que uma consulta comeca.
+        """
+        win = self.win
+        for nome in ("_current_timer_live", "_current_render_timer",
+                     "_current_lbl_text", "_current_full_text", "chat_input"):
+            if hasattr(win, nome):
+                delattr(win, nome)
+        win.active_worker = self._worker_parado()
+        win.stop_ai_generation()  # nao deve levantar
+        self.assertTrue(win.query_queue == [])
+
+    def test_o_aviso_entra_uma_vez_so(self):
+        """Dois cliques em Parar nao podem gerar dois avisos."""
+        win = self.win
+        for _ in range(2):
+            win.active_worker = self._worker_parado()
+            win.stop_ai_generation()
+        with_aviso = [t for t in self.escritas if "interrompida" in t]
+        self.assertTrue(with_aviso, "o aviso de interrupção não apareceu")
+        for texto in with_aviso:
+            self.assertEqual(texto.count("interrompida pelo usuário"), 1,
+                             f"aviso duplicado: {texto!r}")
+
+    def test_o_estado_do_mixin_reflete_a_tela(self):
+        """`_current_full_text` tem que ficar igual ao que o balao mostra.
+
+        E o que torna a guarda de idempotencia real. Sem essa escrita de
+        volta, a guarda lia sempre o texto original e nunca disparava: o
+        aviso unico saia por sorte, nao por desenho, e qualquer refactor que
+        religasse um sinal passaria a duplicar o aviso sem nenhum teste
+        reclamar.
+        """
+        win = self.win
+        win.active_worker = self._worker_parado()
+        win.stop_ai_generation()
+        self.assertIn(
+            "[Geração interrompida pelo usuário]", win._current_full_text[0],
+            "o texto acumulado do mixin não recebeu o aviso que foi desenhado",
+        )
+
+    def test_resposta_vazia_vira_so_o_aviso(self):
+        win = self.win
+        win._current_full_text = ["   "]
+        win.active_worker = self._worker_parado()
+        win.stop_ai_generation()
+        self.assertEqual(self.escritas, ["[Geração interrompida pelo usuário]"])
+
+    def test_o_cronometro_para_em_vermelho(self):
+        win = self.win
+        win.active_worker = self._worker_parado()
+        win.stop_ai_generation()
+        texto, estilo = win._current_ai_bubble._lbl_timer.setText.call_args[0][0], \
+            win._current_ai_bubble._lbl_timer.setStyleSheet.call_args[0][0]
+        self.assertTrue(texto.startswith("⏹️"), texto)
+        self.assertIn("#ef4444", estilo)
+
+    def test_a_fila_e_limpa(self):
+        win = self.win
+        win.active_worker = self._worker_parado()
+        win.stop_ai_generation()
+        self.assertEqual(win.query_queue, [])
+
+    def test_worker_cancela_e_sai_da_variavel(self):
+        win = self.win
+        worker = self._worker_parado()
+        worker.cancel = mock.Mock()
+        win.active_worker = worker
+        win.stop_ai_generation()
+        worker.cancel.assert_called_once()
+        self.assertIsNone(win.active_worker)
+
+    def test_sem_worker_nao_faz_nada(self):
+        win = self.win
+        win.active_worker = None
+        win.stop_ai_generation()  # nao deve levantar
+        win._current_render_timer.stop.assert_not_called()
+
+    def test_o_worker_parado_avisa_que_cancelou(self):
+        """`cancel()` precisa chegar ao worker: e ele que aborta o stream."""
+        win = self.win
+        worker = self._worker_parado()
+        worker.cancel = mock.Mock()
+        win.active_worker = worker
+        win.stop_ai_generation()
+        self.assertTrue(worker.cancel.called)
 
 
 if __name__ == "__main__":

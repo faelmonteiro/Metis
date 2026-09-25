@@ -88,6 +88,17 @@ from agente.utils import (
 from datetime import datetime
 from pathlib import Path
 
+# Texto que o balao recebe quando a geracao para. Fica em uma constante porque
+# duas coisas dependem dele: o aviso exibido e a checagem de idempotencia — se
+# o texto mudar em um lugar e nao no outro, dois cliques em Parar passam a
+# gerar dois avisos.
+MARCA_DE_INTERROPCAO = "[Geração interrompida pelo usuário]"
+GLIFO_DE_PARADO = "⏹️"
+# Mesma escala do cronometro vivo, trocando so a cor. A folha de estilo estava
+# duplicada em dois metodos, entao mudar a escala num so nao mudaria no outro.
+ESTILO_DO_ROTULO_PARADO = "color: #ef4444; background: transparent; font-size: 8pt;"
+
+
 class AiMixin:
     """Consulta a LLM, fila e cancelamento.
 
@@ -97,6 +108,18 @@ class AiMixin:
     Os metodos sao os mesmos de `MetisMainWindow` de antes: a divisao em
     mixins nao moveu nenhum corpo, so mudou onde cada um mora.
     """
+
+    # Fonte unica dos sinais do worker. Conectar e desconectar leem os dois
+    # esta tabela; quando as listas eram separadas, `search_started` entrou na
+    # de conectar e nunca entrou na de desconectar.
+    _SINAIS_DO_WORKER = (
+        ("chunk_received", "_on_chunk"),
+        ("search_started", "_on_search_started"),
+        ("tool_started", "_on_tool_started"),
+        ("tool_finished", "_on_tool_finished"),
+        ("finished_response", "_on_finished"),
+        ("error_occurred", "_on_error"),
+    )
 
     def send_chat_message(self):
         msg = self.chat_input.text().strip()
@@ -522,16 +545,8 @@ class AiMixin:
         return timer
 
     def _ligar_sinais_do_worker(self):
-        ligacoes = (
-            ("chunk_received", self._on_chunk),
-            ("search_started", self._on_search_started),
-            ("tool_started", self._on_tool_started),
-            ("tool_finished", self._on_tool_finished),
-            ("finished_response", self._on_finished),
-            ("error_occurred", self._on_error),
-        )
-        for sinal, handler in ligacoes:
-            getattr(self.active_worker, sinal).connect(handler)
+        for sinal, handler in self._SINAIS_DO_WORKER:
+            getattr(self.active_worker, sinal).connect(getattr(self, handler))
 
     def _rotulo_do_cronometro(self):
         """O rotulo do cronometro do balao, ou None quando o balao nao tem um."""
@@ -665,76 +680,102 @@ class AiMixin:
         self.active_worker = None
 
         if worker and worker.isRunning():
-            try:
-                worker.chunk_received.disconnect()
-            except Exception as _silent_e:
-                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
-            try:
-                worker.finished_response.disconnect()
-            except Exception as _silent_e:
-                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
-            try:
-                worker.error_occurred.disconnect()
-            except Exception as _silent_e:
-                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
-            try:
-                worker.tool_started.disconnect()
-            except Exception as _silent_e:
-                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
-            try:
-                worker.tool_finished.disconnect()
-            except Exception as _silent_e:
-                logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
-
+            self._desligar_sinais_do_worker(worker)
             worker.cancel()
             self.btn_stop.setVisible(False)
 
-            # 1. Interrompe timers de atualização imediatamente
-            if hasattr(self, "_current_timer_live") and self._current_timer_live:
-                try:
-                    self._current_timer_live.stop()
-                except Exception as _silent_e:
-                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
-            if hasattr(self, "_current_render_timer") and self._current_render_timer:
-                try:
-                    self._current_render_timer.stop()
-                except Exception as _silent_e:
-                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
-
-            # 2. Atualiza o balão de resposta instantaneamente no mesmo milissegundo
-            if hasattr(self, "_current_lbl_text") and self._current_lbl_text:
-                try:
-                    current_txt = ""
-                    if hasattr(self, "_current_full_text") and self._current_full_text:
-                        current_txt = self._current_full_text[0]
-                    if not current_txt.strip():
-                        current_txt = "[Geração interrompida pelo usuário]"
-                    elif "[Geração interrompida" not in current_txt:
-                        current_txt += "\n\n[Geração interrompida pelo usuário]"
-                    self._set_bubble_content(self._current_lbl_text, current_txt)
-                except Exception as _silent_e:
-                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
-
-            # 3. Atualiza o badge do tempo para parado
-            if hasattr(self, "_current_ai_bubble") and self._current_ai_bubble:
-                try:
-                    if hasattr(self._current_ai_bubble, "_lbl_timer") and self._current_ai_bubble._lbl_timer:
-                        if hasattr(self, "_current_start_time"):
-                            elapsed = time.monotonic() - self._current_start_time
-                            self._current_ai_bubble._lbl_timer.setText(f"⏹️ {elapsed:.1f}s")
-                            self._current_ai_bubble._lbl_timer.setStyleSheet("color: #ef4444; background: transparent; font-size: 8pt;")
-                except Exception as _silent_e:
-                    logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
-
+            self._parar_timers_de_render()
+            self._marcar_balao_interrompido()
+            self._congelar_cronometro_interrompido()
             self.scroll_chat_to_bottom()
-
-            # 4. Devolve o foco imediato para o campo de digitação
-            if hasattr(self, "chat_input") and self.chat_input:
-                self.chat_input.setEnabled(True)
-                self.chat_input.setFocus()
+            self._devolver_foco_ao_chat()
 
         if self.query_queue:
             self.query_queue.clear()
+
+    def _desligar_sinais_do_worker(self, worker):
+        """Desconecta exatamente o que `_ligar_sinais_do_worker` conectou.
+
+        A lista vivia duplicada em `stop_ai_generation` e ja tinha divergido:
+        seis sinais eram conectados e cinco desconectados, entao
+        `search_started` ficava ligado para sempre depois de um cancelamento
+        — o worker soltado continuaria chamando o handler do balao. Ler as
+        duas pontas da mesma tabela deixa a divergencia impossivel.
+
+        `disconnect()` sem argumento solta todos os slots do sinal, e nao so o
+        nosso. E o comportamento do original, entao foi preservado.
+
+        As exceções sao estreitas de proposito: `disconnect` levanta TypeError
+        quando o sinal ja nao tem slot, e RuntimeError quando o objeto C++ foi
+        destruido. Um nome de sinal escrito errado levanta AttributeError e
+        precisa aparecer — o `except Exception` original engoleva exatamente a
+        classe de erro que esconde um `KeyInpu` no lugar de `KeyInput`.
+        """
+        for sinal, _handler in self._SINAIS_DO_WORKER:
+            try:
+                getattr(worker, sinal).disconnect()
+            except (TypeError, RuntimeError) as e:
+                logger.debug("Sinal %s já desligado: %s", sinal, e, exc_info=True)
+
+    def _parar_timers_de_render(self):
+        """Congela os dois timers antes de mexer no balao.
+
+        Sem isto, um `_flush_render` pendente reescreve o texto de
+        interrupcao logo depois e o usuario ve o aviso sumir sozinho.
+        """
+        for nome in ("_current_timer_live", "_current_render_timer"):
+            timer = getattr(self, nome, None)
+            if timer is None:
+                continue
+            try:
+                timer.stop()
+            except RuntimeError as e:
+                logger.debug("Timer %s já parado: %s", nome, e, exc_info=True)
+
+    def _marcar_balao_interrompido(self):
+        """Acrescenta o aviso de interrupcao ao que ja foi gerado.
+
+        A operacao e idempotente porque o texto marcado volta para
+        `_current_full_text`. Sem essa escrita de volta, a guarda
+        `MARCA_DE_INTERROPCAO not in texto` lia sempre o texto original e
+        nunca disparava: dois cliques em Parar nao duplicavam o aviso por
+        sorte, e nao por desenho. `_set_bubble_content` so escreve no QLabel,
+        entao o estado do mixin ficava mentindo sobre o que estava na tela.
+        """
+        balao = getattr(self, "_current_lbl_text", None)
+        if balao is None:
+            return
+        acumulado = getattr(self, "_current_full_text", None)
+        texto = acumulado[0] if acumulado else ""
+        if not texto.strip():
+            texto = MARCA_DE_INTERROPCAO
+        elif MARCA_DE_INTERROPCAO not in texto:
+            texto = f"{texto}\n\n{MARCA_DE_INTERROPCAO}"
+        if acumulado:
+            acumulado[0] = texto
+        self._set_bubble_content(balao, texto)
+
+    def _congelar_cronometro_interrompido(self):
+        """Fixa o tempo no valor parado, em vermelho, e mantem a escala.
+
+        Copia a regra do cronometro vivo em vez de repetir a folha de estilo
+        na mao: a string ficava em dois lugares, e mudar a escala num so nao
+        mudaria no outro.
+        """
+        rotulo = self._rotulo_do_cronometro()
+        if rotulo is None:
+            return
+        if not getattr(self, "_current_start_time", None):
+            return
+        elapsed = time.monotonic() - self._current_start_time
+        rotulo.setText(f"{GLIFO_DE_PARADO} {elapsed:.1f}s")
+        rotulo.setStyleSheet(ESTILO_DO_ROTULO_PARADO)
+
+    def _devolver_foco_ao_chat(self):
+        campo = getattr(self, "chat_input", None)
+        if campo is not None:
+            campo.setEnabled(True)
+            campo.setFocus()
 
     def retry_last_query(self):
         turnos = self.history_manager.listar_turnos()

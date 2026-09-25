@@ -104,10 +104,13 @@ class AIWorker(QThread):
                     self.chunk_received.emit(full_response)
                 self._salvar_na_historico(full_response, self._midia_ou_nada())
             elif full_response.strip():
-                # Cancelado: o original nao gravava a midia. Preservado como
-                # esta — parece descuido do autor, mas nao e o lugar de decidir
-                # isso no meio de um refactor. Coberto por teste.
-                self._salvar_na_historico(full_response, None)
+                # O caminho de erro tambem nao devolve resposta util e mesmo
+                # assim grava a midia: `media_paths` na mensagem do usuario
+                # significa "esta mensagem tinha estes anexos", e o original
+                # perder isso deixava no historico perguntas sobre imagem sem
+                # imagem — e o servico, ao remontar a requisicao, nao tinha o
+                # que reenviar. Era o unico dos tres caminhos sem midia.
+                self._salvar_na_historico(full_response, self._midia_ou_nada())
             self.finished_response.emit(full_response)
         except Exception as e:
             prov_nome = getattr(self.service, "nome_provedor", "Oráculo")

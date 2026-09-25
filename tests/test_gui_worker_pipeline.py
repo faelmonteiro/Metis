@@ -245,19 +245,49 @@ class TestPipelineDoWorker(unittest.TestCase):
         self.assertEqual(
             len([e for e in reg.eventos if e[0] == "chunk_received"]), 1)
 
-    def test_cancelado_perde_a_midia_na_historico(self):
-        """Documenta uma assimetria do original, nao um desideratum.
+    def test_cancelado_grava_a_midia(self):
+        """Cancelado com anexo tem que gravar a midia, como os outros caminhos.
 
-        Consultar e cancelar com anexo grava o par sem `media_paths` na
-        mensagem do usuario; o caminho normal e o de erro gravam com. Nao
-        corrigi durante o refactor: mudalo junto seria decidir uma coisa que nao
-        me foi pedida. Fixa aqui para a decisao ficar visivel.
+        Este foi o unico dos tres saidas do pipeline que nao gravava
+        `media_paths` na mensagem do usuario. O de erro tambem nao devolve
+        resposta util e gravava com. `media_paths` registra "esta mensagem
+        tinha estes anexos": sem ele, o historico guarda uma pergunta sobre
+        imagem que nao tem imagem, e os servicos (base.py, gemini, ollama) nao
+        acham o que reenviar ao remontar a requisicao.
         """
         w = _worker(service=_ServicoDuble(chunks=["a"]), media_paths=["/tmp/a.png"])
         reg = _Registro(w)
         w.chunk_received.connect(lambda *_: w.cancel())
         w.run()
-        self.assertEqual(w.hm.salvou[0][2], None)
+        self.assertEqual(w.hm.salvou[0][2], ["/tmp/a.png"])
+
+    def test_cancelado_e_erro_gravam_a_midia_igual(self):
+        """Trava a decisao: os tres caminhos que salvam, salvam igual.
+
+        Sem isto, reintroduzir a assimetria passa: so o caminho de cancelamento
+        seria testado, e ele e o unico que nao tem teste de erro equivalente.
+        """
+        def midia_de(worker):
+            return worker.hm.salvou[0][2]
+
+        w_norm = _worker(media_paths=["/tmp/a.png"])
+        self.roda(w_norm)
+
+        w_can = _worker(service=_ServicoDuble(chunks=["a"]), media_paths=["/tmp/a.png"])
+        _Registro(w_can)
+        w_can.chunk_received.connect(lambda *_: w_can.cancel())
+        w_can.run()
+
+        w_err = _worker(
+            service=_ServicoDuble(erro=RuntimeError("boom")),
+            media_paths=["/tmp/a.png"],
+        )
+        _Registro(w_err)
+        w_err.run()
+
+        self.assertEqual(midia_de(w_norm), ["/tmp/a.png"])
+        self.assertEqual(midia_de(w_can), midia_de(w_norm))
+        self.assertEqual(midia_de(w_err), midia_de(w_norm))
 
     def test_normal_grava_a_midia(self):
         w = _worker(media_paths=["/tmp/a.png"])
