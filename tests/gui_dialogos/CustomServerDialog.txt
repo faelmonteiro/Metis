@@ -1,0 +1,21 @@
+QVBoxLayout||CustomServerDialog:|PyQt6.QtCore.QRect()||True|||||||PyQt6.QtCore.QSize(513, 394)|
+QVBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(18, 14, 504, 43)||True|||||||PyQt6.QtCore.QSize(477, 43)|
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(18, 435, 504, 31)||True|||||||PyQt6.QtCore.QSize(206, 31)|
+QLabel||CustomServerDialog:|PyQt6.QtCore.QRect(18, 14, 504, 24)|True|True|➕ NOVO SERVIDOR API (OpenAI Compatible)|color: #fad094; background: transparent;|||||PyQt6.QtCore.QSize(377, 24)|PyQt6.QtCore.QSize(377, 24)
+QLabel||CustomServerDialog:|PyQt6.QtCore.QRect(18, 40, 504, 17)|True|True|Cadastre OpenRouter, DeepSeek, LocalAI, vLLM, LM Studio ou endpoints compatíveis|color: #94a3b8; background: transparent;|||||PyQt6.QtCore.QSize(477, 17)|PyQt6.QtCore.QSize(477, 17)
+QFrame||CustomServerDialog:|PyQt6.QtCore.QRect(18, 67, 504, 358)|True|True|||||ApiCard||PyQt6.QtCore.QSize(267, 272)|PyQt6.QtCore.QSize(267, 272)
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 502, 356)||True|||||||PyQt6.QtCore.QSize(265, 270)|
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 13, 474, 40)|True|True|1. Nome do Provedor / Servidor:|color: #cbd5e1; background: transparent;|||||PyQt6.QtCore.QSize(237, 21)|PyQt6.QtCore.QSize(237, 21)
+QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 59, 474, 33)|True|True||||Ex: OpenRouter, DeepSeek, LocalAI...|KeyInput|EchoMode.Normal|PyQt6.QtCore.QSize(128, 33)|PyQt6.QtCore.QSize(57, 33)
+QObject||QLineEdit:|||||||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 98, 474, 39)|True|True|2. URL do Endpoint (Base URL):|color: #cbd5e1; background: transparent;|||||PyQt6.QtCore.QSize(182, 17)|PyQt6.QtCore.QSize(182, 17)
+QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 143, 474, 33)|True|True|https://openrouter.ai/api/v1/chat/completions|||https://openrouter.ai/api/v1/chat/completions|KeyInput|EchoMode.Normal|PyQt6.QtCore.QSize(128, 33)|PyQt6.QtCore.QSize(57, 33)
+QObject||QLineEdit:|||||||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 182, 474, 40)|True|True|3. Chave de API (Authorization Bearer):|color: #cbd5e1; background: transparent;|||||PyQt6.QtCore.QSize(232, 17)|PyQt6.QtCore.QSize(232, 17)
+QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 228, 474, 33)|True|True||||sk-... (deixe vazio se for servidor local sem auth)|KeyInput|EchoMode.Password|PyQt6.QtCore.QSize(128, 33)|PyQt6.QtCore.QSize(57, 33)
+QObject||QLineEdit:|||||||||||
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 267, 474, 39)|True|True|4. Identificador do Modelo Inicial:|color: #cbd5e1; background: transparent;|||||PyQt6.QtCore.QSize(201, 17)|PyQt6.QtCore.QSize(201, 17)
+QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 312, 474, 33)|True|True||||Ex: deepseek/deepseek-chat, mistralai/mistral-large...|KeyInput|EchoMode.Normal|PyQt6.QtCore.QSize(128, 33)|PyQt6.QtCore.QSize(57, 33)
+QObject||QLineEdit:|||||||||||
+QPushButton||CustomServerDialog:|PyQt6.QtCore.QRect(316, 435, 72, 31)|True|True|Cancelar||||SecondaryBtn||PyQt6.QtCore.QSize(72, 31)|PyQt6.QtCore.QSize(72, 31)
+QPushButton||CustomServerDialog:|PyQt6.QtCore.QRect(398, 436, 124, 29)|True|True|💾 Salvar Servidor||||PrimaryBtn||PyQt6.QtCore.QSize(124, 29)|PyQt6.QtCore.QSize(124, 29)

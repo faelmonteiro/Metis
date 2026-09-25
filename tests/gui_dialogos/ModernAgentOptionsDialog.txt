@@ -1,0 +1,112 @@
+QVBoxLayout||ModernAgentOptionsDialog:|PyQt6.QtCore.QRect()||True|||||||PyQt6.QtCore.QSize(698, 623)|
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(20, 16, 680, 43)||True|||||||PyQt6.QtCore.QSize(519, 43)|
+QVBoxLayout||QHBoxLayout:|PyQt6.QtCore.QRect(54, 16, 485, 43)||True|||||||PyQt6.QtCore.QSize(485, 43)|
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(20, 467, 680, 31)||True|||||||PyQt6.QtCore.QSize(270, 31)|
+QLabel||ModernAgentOptionsDialog:|PyQt6.QtCore.QRect(20, 16, 22, 43)|True|True|🤖|background: transparent;|||||PyQt6.QtCore.QSize(22, 20)|PyQt6.QtCore.QSize(22, 20)
+QLabel||ModernAgentOptionsDialog:|PyQt6.QtCore.QRect(54, 16, 485, 24)|True|True|OPÇÕES DO AGENTE|color: #fad094; background: transparent;|||||PyQt6.QtCore.QSize(168, 24)|PyQt6.QtCore.QSize(168, 24)
+QLabel||ModernAgentOptionsDialog:|PyQt6.QtCore.QRect(54, 42, 485, 17)|True|True|Personalize diretrizes, ferramentas de sistema, busca na web e memória do assistente|color: #94a3b8; background: transparent;|||||PyQt6.QtCore.QSize(485, 17)|PyQt6.QtCore.QSize(485, 17)
+QFrame||ModernAgentOptionsDialog:|PyQt6.QtCore.QRect(20, 71, 680, 1)|True|True||background-color: #162234;|||||PyQt6.QtCore.QSize(-1, -1)|PyQt6.QtCore.QSize(-1, -1)
+QScrollArea||ModernAgentOptionsDialog:|PyQt6.QtCore.QRect(20, 84, 680, 371)|True|True|||||||PyQt6.QtCore.QSize(658, 480)|PyQt6.QtCore.QSize(46, 46)
+QWidget|qt_scrollarea_viewport|QScrollArea:|PyQt6.QtCore.QRect(0, 0, 673, 371)|True|True|||||||PyQt6.QtCore.QSize(-1, -1)|PyQt6.QtCore.QSize(-1, -1)
+QWidget||QWidget:qt_scrollarea_viewport|PyQt6.QtCore.QRect(0, 0, 673, 633)|True|True|||||||PyQt6.QtCore.QSize(566, 663)|PyQt6.QtCore.QSize(566, 591)
+QVBoxLayout||QWidget:|PyQt6.QtCore.QRect(0, 0, 673, 633)||True|||||||PyQt6.QtCore.QSize(566, 678)|
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 0, 673, 222)|True|True|||||ApiCard||PyQt6.QtCore.QSize(566, 222)|PyQt6.QtCore.QSize(566, 180)
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 671, 220)||True|||||||PyQt6.QtCore.QSize(564, 220)|
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 178, 643, 31)||True|||||||PyQt6.QtCore.QSize(536, 31)|
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 13, 643, 17)|True|True|🧠  PERSONALIDADE & DIRETRIZES DO AGENTE|color: #f0a85d; background: transparent;|||||PyQt6.QtCore.QSize(274, 17)|PyQt6.QtCore.QSize(274, 17)
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 38, 643, 17)|True|True|Instruções personalizadas (System Prompt Customizado):|color: #cbd5e1; background: transparent;|||||PyQt6.QtCore.QSize(343, 17)|PyQt6.QtCore.QSize(343, 17)
+QPlainTextEdit||QFrame:|PyQt6.QtCore.QRect(15, 63, 643, 75)|True|True||||Ex: Responda em português brasileiro de forma técnica e objetiva. Priorize atalhos e comandos para Hyprland e Arch Linux...|KeyInput||PyQt6.QtCore.QSize(256, 192)|PyQt6.QtCore.QSize(68, 68)
+QWidget|qt_scrollarea_viewport|QPlainTextEdit:|PyQt6.QtCore.QRect(11, 6, 621, 63)|True|True|||||||PyQt6.QtCore.QSize(-1, -1)|PyQt6.QtCore.QSize(-1, -1)
+QWidget|qt_scrollarea_hcontainer|QPlainTextEdit:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize(39, 7)|PyQt6.QtCore.QSize(39, 7)
+QScrollBar||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize(39, 7)|PyQt6.QtCore.QSize(-1, -1)
+QBoxLayout||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect()||True|||||||PyQt6.QtCore.QSize(39, 7)|
+QWidget|qt_scrollarea_vcontainer|QPlainTextEdit:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize(7, 39)|PyQt6.QtCore.QSize(7, 39)
+QScrollBar||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize(7, 39)|PyQt6.QtCore.QSize(-1, -1)
+QBoxLayout||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect()||True|||||||PyQt6.QtCore.QSize(7, 39)|
+QObject||QPlainTextEdit:|||||||||||
+QTextDocument||QObject:|||||||||||
+QPlainTextDocumentLayout||QTextDocument:|||||||||||
+QWidget||QPlainTextEdit:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|||||||PyQt6.QtCore.QSize(-1, -1)|PyQt6.QtCore.QSize(-1, -1)
+QWidget||QPlainTextEdit:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|||||||PyQt6.QtCore.QSize(-1, -1)|PyQt6.QtCore.QSize(-1, -1)
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 146, 643, 15)|True|True|💡 Deixe em branco para usar as diretrizes automáticas inteligentes do Metis.|color: #64748b; background: transparent;|||||PyQt6.QtCore.QSize(398, 15)|PyQt6.QtCore.QSize(398, 15)
+QFrame||QFrame:|PyQt6.QtCore.QRect(15, 169, 643, 1)|True|True||background-color: #1a2638;|||||PyQt6.QtCore.QSize(-1, -1)|PyQt6.QtCore.QSize(-1, -1)
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 178, 217, 31)|True|True|Nível de Criatividade (Temperatura):|color: #cbd5e1; background: transparent;|||||PyQt6.QtCore.QSize(217, 17)|PyQt6.QtCore.QSize(217, 17)
+QComboBox||QFrame:|PyQt6.QtCore.QRect(240, 178, 418, 31)|True|True|||||||PyQt6.QtCore.QSize(311, 31)|PyQt6.QtCore.QSize(311, 31)
+QStandardItemModel||QComboBox:|||||||||||
+QFrame||QComboBox:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize()|PyQt6.QtCore.QSize()
+QBoxLayout||QFrame:|PyQt6.QtCore.QRect()||True|||||||PyQt6.QtCore.QSize()|
+QListView||QFrame:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|||||||PyQt6.QtCore.QSize(256, 192)|PyQt6.QtCore.QSize(48, 48)
+QWidget|qt_scrollarea_viewport|QListView:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|||||||PyQt6.QtCore.QSize(-1, -1)|PyQt6.QtCore.QSize(-1, -1)
+QWidget|qt_scrollarea_hcontainer|QListView:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize(39, 7)|PyQt6.QtCore.QSize(39, 7)
+QScrollBar||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize(39, 7)|PyQt6.QtCore.QSize(-1, -1)
+QBoxLayout||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect()||True|||||||PyQt6.QtCore.QSize(39, 7)|
+QWidget|qt_scrollarea_vcontainer|QListView:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize(7, 39)|PyQt6.QtCore.QSize(7, 39)
+QScrollBar||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize(7, 39)|PyQt6.QtCore.QSize(-1, -1)
+QBoxLayout||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect()||True|||||||PyQt6.QtCore.QSize(7, 39)|
+QStyledItemDelegate||QListView:|||||||||||
+QItemSelectionModel||QListView:|||||||||||
+QStyledItemDelegate||QListView:|||||||||||
+QItemDelegate||QListView:|||||||||||
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 234, 673, 152)|True|True|||||ApiCard||PyQt6.QtCore.QSize(490, 182)|PyQt6.QtCore.QSize(490, 152)
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 671, 150)||True|||||||PyQt6.QtCore.QSize(488, 210)|
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 13, 643, 17)|True|True|⚡  FERRAMENTAS & EXECUÇÃO NO SISTEMA|color: #f0a85d; background: transparent;|||||PyQt6.QtCore.QSize(262, 17)|PyQt6.QtCore.QSize(262, 17)
+QCheckBox||QFrame:|PyQt6.QtCore.QRect(15, 38, 643, 19)|True|True|Permitir execução segura de comandos no terminal (ENABLE_COMMAND_TOOL)|color: #fad094; font-size: 11px; font-weight: bold;|||||PyQt6.QtCore.QSize(460, 19)|PyQt6.QtCore.QSize(460, 19)
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 65, 643, 15)|True|True|Habilita o agente a executar comandos seguros no sistema operacional para diagnósticos e tarefas locais.|color: #64748b; background: transparent; padding-left: 20px;|||||PyQt6.QtCore.QSize(228, 45)|PyQt6.QtCore.QSize(92, 15)
+QFrame||QFrame:|PyQt6.QtCore.QRect(15, 88, 643, 1)|True|True||background-color: #1a2638;|||||PyQt6.QtCore.QSize(-1, -1)|PyQt6.QtCore.QSize(-1, -1)
+QCheckBox||QFrame:|PyQt6.QtCore.QRect(15, 97, 643, 19)|True|True|Exibir checklist visual de execução em tempo real (AGENT_VISUAL_CHECKLIST)|color: #fad094; font-size: 11px; font-weight: bold;|||||PyQt6.QtCore.QSize(451, 19)|PyQt6.QtCore.QSize(451, 19)
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 124, 643, 15)|True|True|Mostra um painel interativo na mensagem do chat com as ações e ferramentas executadas pelo agente.|color: #64748b; background: transparent; padding-left: 20px;|||||PyQt6.QtCore.QSize(246, 45)|PyQt6.QtCore.QSize(90, 15)
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 398, 673, 141)|True|True|||||ApiCard||PyQt6.QtCore.QSize(496, 156)|PyQt6.QtCore.QSize(496, 141)
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 671, 139)||True|||||||PyQt6.QtCore.QSize(494, 169)|
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 97, 643, 31)||True|||||||PyQt6.QtCore.QSize(466, 31)|
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 13, 643, 17)|True|True|🌐  PESQUISA NA WEB & ENRIQUECIMENTO|color: #f0a85d; background: transparent;|||||PyQt6.QtCore.QSize(255, 17)|PyQt6.QtCore.QSize(255, 17)
+QCheckBox||QFrame:|PyQt6.QtCore.QRect(15, 38, 643, 19)|True|True|Extrair conteúdo completo de páginas na busca web (FETCH_PAGE_CONTENT)|color: #fad094; font-size: 11px; font-weight: bold;|||||PyQt6.QtCore.QSize(445, 19)|PyQt6.QtCore.QSize(445, 19)
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 65, 643, 15)|True|True|Lê e sintetiza o corpo textual completo das páginas encontradas, gerando respostas mais ricas.|color: #64748b; background: transparent; padding-left: 20px;|||||PyQt6.QtCore.QSize(247, 45)|PyQt6.QtCore.QSize(94, 15)
+QFrame||QFrame:|PyQt6.QtCore.QRect(15, 88, 643, 1)|True|True||background-color: #1a2638;|||||PyQt6.QtCore.QSize(-1, -1)|PyQt6.QtCore.QSize(-1, -1)
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 97, 225, 31)|True|True|Resultados consultados por pesquisa:|color: #cbd5e1; background: transparent;|||||PyQt6.QtCore.QSize(225, 17)|PyQt6.QtCore.QSize(225, 17)
+QComboBox||QFrame:|PyQt6.QtCore.QRect(248, 97, 410, 31)|True|True|||||||PyQt6.QtCore.QSize(233, 31)|PyQt6.QtCore.QSize(233, 31)
+QStandardItemModel||QComboBox:|||||||||||
+QFrame||QComboBox:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize()|PyQt6.QtCore.QSize()
+QBoxLayout||QFrame:|PyQt6.QtCore.QRect()||True|||||||PyQt6.QtCore.QSize()|
+QListView||QFrame:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|||||||PyQt6.QtCore.QSize(256, 192)|PyQt6.QtCore.QSize(48, 48)
+QWidget|qt_scrollarea_viewport|QListView:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|||||||PyQt6.QtCore.QSize(-1, -1)|PyQt6.QtCore.QSize(-1, -1)
+QWidget|qt_scrollarea_hcontainer|QListView:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize(39, 7)|PyQt6.QtCore.QSize(39, 7)
+QScrollBar||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize(39, 7)|PyQt6.QtCore.QSize(-1, -1)
+QBoxLayout||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect()||True|||||||PyQt6.QtCore.QSize(39, 7)|
+QWidget|qt_scrollarea_vcontainer|QListView:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize(7, 39)|PyQt6.QtCore.QSize(7, 39)
+QScrollBar||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize(7, 39)|PyQt6.QtCore.QSize(-1, -1)
+QBoxLayout||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect()||True|||||||PyQt6.QtCore.QSize(7, 39)|
+QStyledItemDelegate||QListView:|||||||||||
+QItemSelectionModel||QListView:|||||||||||
+QStyledItemDelegate||QListView:|||||||||||
+QItemDelegate||QListView:|||||||||||
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 551, 673, 82)|True|True|||||ApiCard||PyQt6.QtCore.QSize(564, 82)|PyQt6.QtCore.QSize(564, 82)
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 671, 80)||True|||||||PyQt6.QtCore.QSize(562, 80)|
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 38, 643, 31)||True|||||||PyQt6.QtCore.QSize(534, 31)|
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 13, 643, 17)|True|True|📜  MEMÓRIA & CONTEXTO DA CONVERSA|color: #f0a85d; background: transparent;|||||PyQt6.QtCore.QSize(247, 17)|PyQt6.QtCore.QSize(247, 17)
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 38, 240, 31)|True|True|Mensagens mantidas na memória ativa:|color: #cbd5e1; background: transparent;|||||PyQt6.QtCore.QSize(240, 17)|PyQt6.QtCore.QSize(240, 17)
+QComboBox||QFrame:|PyQt6.QtCore.QRect(263, 38, 395, 31)|True|True|||||||PyQt6.QtCore.QSize(286, 31)|PyQt6.QtCore.QSize(286, 31)
+QStandardItemModel||QComboBox:|||||||||||
+QFrame||QComboBox:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize()|PyQt6.QtCore.QSize()
+QBoxLayout||QFrame:|PyQt6.QtCore.QRect()||True|||||||PyQt6.QtCore.QSize()|
+QListView||QFrame:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|||||||PyQt6.QtCore.QSize(256, 192)|PyQt6.QtCore.QSize(48, 48)
+QWidget|qt_scrollarea_viewport|QListView:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|||||||PyQt6.QtCore.QSize(-1, -1)|PyQt6.QtCore.QSize(-1, -1)
+QWidget|qt_scrollarea_hcontainer|QListView:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize(39, 7)|PyQt6.QtCore.QSize(39, 7)
+QScrollBar||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize(39, 7)|PyQt6.QtCore.QSize(-1, -1)
+QBoxLayout||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect()||True|||||||PyQt6.QtCore.QSize(39, 7)|
+QWidget|qt_scrollarea_vcontainer|QListView:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize(7, 39)|PyQt6.QtCore.QSize(7, 39)
+QScrollBar||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize(7, 39)|PyQt6.QtCore.QSize(-1, -1)
+QBoxLayout||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect()||True|||||||PyQt6.QtCore.QSize(7, 39)|
+QStyledItemDelegate||QListView:|||||||||||
+QItemSelectionModel||QListView:|||||||||||
+QStyledItemDelegate||QListView:|||||||||||
+QItemDelegate||QListView:|||||||||||
+QWidget||QScrollArea:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|||||||PyQt6.QtCore.QSize(-1, -1)|PyQt6.QtCore.QSize(-1, -1)
+QWidget||QScrollArea:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|||||||PyQt6.QtCore.QSize(-1, -1)|PyQt6.QtCore.QSize(-1, -1)
+QWidget|qt_scrollarea_hcontainer|QScrollArea:|PyQt6.QtCore.QRect(0, 364, 673, 7)|False|True|||||||PyQt6.QtCore.QSize(39, 7)|PyQt6.QtCore.QSize(39, 7)
+QScrollBar||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect(0, 0, 673, 7)|False|True|||||||PyQt6.QtCore.QSize(39, 7)|PyQt6.QtCore.QSize(-1, -1)
+QBoxLayout||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect(0, 0, 673, 7)||True|||||||PyQt6.QtCore.QSize(39, 7)|
+QWidget|qt_scrollarea_vcontainer|QScrollArea:|PyQt6.QtCore.QRect(673, 0, 7, 371)|True|True|||||||PyQt6.QtCore.QSize(7, 39)|PyQt6.QtCore.QSize(7, 39)
+QScrollBar||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 7, 371)|True|True|||||||PyQt6.QtCore.QSize(7, 39)|PyQt6.QtCore.QSize(-1, -1)
+QBoxLayout||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 7, 371)||True|||||||PyQt6.QtCore.QSize(7, 39)|
+QPushButton||ModernAgentOptionsDialog:|PyQt6.QtCore.QRect(430, 467, 101, 31)|True|True|Cancelar (ESC)||||SecondaryBtn||PyQt6.QtCore.QSize(101, 31)|PyQt6.QtCore.QSize(101, 31)
+QPushButton||ModernAgentOptionsDialog:|PyQt6.QtCore.QRect(543, 468, 157, 29)|True|True|💾 Salvar Configurações||||PrimaryBtn||PyQt6.QtCore.QSize(157, 29)|PyQt6.QtCore.QSize(157, 29)

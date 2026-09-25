@@ -1,0 +1,28 @@
+QVBoxLayout||ModernAddModelDialog:|PyQt6.QtCore.QRect(0, 0, 480, 205)||True|||||||PyQt6.QtCore.QSize(390, 179)|
+QWidget|CentralWidget|ModernAddModelDialog:|PyQt6.QtCore.QRect(0, 0, 480, 205)|True|True|||||||PyQt6.QtCore.QSize(390, 179)|PyQt6.QtCore.QSize(390, 179)
+QVBoxLayout||QWidget:CentralWidget|PyQt6.QtCore.QRect()||True|||||||PyQt6.QtCore.QSize(390, 179)|
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(20, 20, 440, 43)||True|||||||PyQt6.QtCore.QSize(350, 43)|
+QVBoxLayout||QHBoxLayout:|PyQt6.QtCore.QRect(52, 20, 282, 43)||True|||||||PyQt6.QtCore.QSize(282, 43)|
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(20, 148, 440, 34)||True|||||||PyQt6.QtCore.QSize(220, 34)|
+QLabel||QWidget:CentralWidget|PyQt6.QtCore.QRect(20, 20, 22, 43)|True|True|🔮|background: transparent;|||||PyQt6.QtCore.QSize(22, 20)|PyQt6.QtCore.QSize(22, 20)
+QLabel||QWidget:CentralWidget|PyQt6.QtCore.QRect(52, 20, 282, 24)|True|True|ADICIONAR NOVO MODELO|color: #fad094; letter-spacing: 0.5px; background: transparent;|||||PyQt6.QtCore.QSize(244, 24)|PyQt6.QtCore.QSize(244, 24)
+QLabel||QWidget:CentralWidget|PyQt6.QtCore.QRect(52, 46, 282, 17)|True|True|Insira o identificador oficial do modelo para Groq|color: #67e8f9; background: transparent;|||||PyQt6.QtCore.QSize(282, 17)|PyQt6.QtCore.QSize(282, 17)
+QPushButton||QWidget:CentralWidget|PyQt6.QtCore.QRect(434, 28, 26, 26)|True|True|✕|
+            QPushButton {
+                color: #94a3b8;
+                background: transparent;
+                border: none;
+                font-size: 13px;
+                font-weight: bold;
+                border-radius: 13px;
+            }
+            QPushButton:hover {
+                color: #fad094;
+                background: rgba(255, 255, 255, 0.08);
+            }
+        |||||PyQt6.QtCore.QSize(11, 18)|PyQt6.QtCore.QSize(11, 18)
+QFrame||QWidget:CentralWidget|PyQt6.QtCore.QRect(20, 79, 440, 1)|True|True||background-color: #1e3557;|||||PyQt6.QtCore.QSize(-1, -1)|PyQt6.QtCore.QSize(-1, -1)
+QLineEdit||QWidget:CentralWidget|PyQt6.QtCore.QRect(20, 96, 440, 36)|True|True||||ex: deepseek/deepseek-chat ou meta-llama/llama-3.3-70b-instruct|KeyInput|EchoMode.Normal|PyQt6.QtCore.QSize(128, 33)|PyQt6.QtCore.QSize(57, 33)
+QObject||QLineEdit:|||||||||||
+QPushButton||QWidget:CentralWidget|PyQt6.QtCore.QRect(240, 148, 72, 34)|True|True|Cancelar||||SecondaryBtn||PyQt6.QtCore.QSize(72, 31)|PyQt6.QtCore.QSize(72, 31)
+QPushButton||QWidget:CentralWidget|PyQt6.QtCore.QRect(322, 148, 138, 34)|True|True|➕ Adicionar Modelo||||PrimaryBtn||PyQt6.QtCore.QSize(138, 29)|PyQt6.QtCore.QSize(138, 29)

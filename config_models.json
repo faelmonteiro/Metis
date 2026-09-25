@@ -1,6 +1,6 @@
 {
-  "active_model": "inclusionai/ling-3.0-flash-fin:free",
-  "active_provider": "openrouter",
+  "active_model": "openai/gpt-oss-120b",
+  "active_provider": "groq",
   "builtin_models": {
     "G4F": [
       "gpt-4o-mini",
@@ -22,7 +22,7 @@
       "base_url": "https://openrouter.ai/api/v1",
       "api_key_env": "OPENROUTER_API_KEY",
       "api_key": "",
-      "modelo_atual": "inclusionai/ling-3.0-flash-fin:free",
+      "modelo_atual": "poolside/laguna-s-2.1:free",
       "modelos": [
         "poolside/laguna-s-2.1:free",
         "inclusionai/ling-3.0-flash-fin:free",
@@ -37,7 +37,7 @@
       "base_url": "https://api.groq.com/openai/v1/chat/completions",
       "api_key_env": "GROQ_API_KEY",
       "api_key": "",
-      "modelo_atual": "llama-3.3-70b-versatile",
+      "modelo_atual": "openai/gpt-oss-120b",
       "modelos": [
         "openai/gpt-oss-120b",
         "llama-3.3-70b-versatile",
@@ -62,19 +62,19 @@
   "preferences": {
     "active_model": "meta/llama-3.2-11b-vision-instruct",
     "active_models": {
-      "default_provider": "nvidia",
+      "default_provider": "openrouter",
       "g4f": "gpt-4o",
-      "groq": "llama-3.3-70b-versatile",
+      "groq": "openai/gpt-oss-120b",
       "nvidia": "moonshotai/kimi-k3",
       "ollama": "llama3.2:3b",
-      "openrouter": "inclusionai/ling-3.0-flash-fin:free"
+      "openrouter": "poolside/laguna-s-2.1:free"
     },
     "copy_btn": true,
     "font_family": "default",
     "font_size": "medium",
     "is_sidebar_collapsed": false,
-    "last_active_model": "inclusionai/ling-3.0-flash-fin:free",
-    "last_active_provider": "openrouter",
+    "last_active_model": "openai/gpt-oss-120b",
+    "last_active_provider": "groq",
     "neon_glow": true,
     "theme_id": "metis_oracle",
     "web_search_enabled": false,

@@ -1,0 +1,25 @@
+QVBoxLayout||ModernRestoreServerDialog:|PyQt6.QtCore.QRect()||True|||||||PyQt6.QtCore.QSize(475, 227)|
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(20, 16, 600, 43)||True|||||||PyQt6.QtCore.QSize(435, 43)|
+QVBoxLayout||QHBoxLayout:|PyQt6.QtCore.QRect(54, 16, 401, 43)||True|||||||PyQt6.QtCore.QSize(401, 43)|
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(20, 435, 600, 29)||True|||||||PyQt6.QtCore.QSize(95, 29)|
+QLabel||ModernRestoreServerDialog:|PyQt6.QtCore.QRect(20, 16, 22, 43)|True|True|🔄|background: transparent;|||||PyQt6.QtCore.QSize(22, 20)|PyQt6.QtCore.QSize(22, 20)
+QLabel||ModernRestoreServerDialog:|PyQt6.QtCore.QRect(54, 16, 401, 24)|True|True|RESTAURAR SERVIDORES DE IA|color: #fad094; background: transparent;|||||PyQt6.QtCore.QSize(255, 24)|PyQt6.QtCore.QSize(255, 24)
+QLabel||ModernRestoreServerDialog:|PyQt6.QtCore.QRect(54, 42, 401, 17)|True|True|Reative provedores nativos ou customizados removidos anteriormente:|color: #94a3b8; background: transparent;|||||PyQt6.QtCore.QSize(401, 17)|PyQt6.QtCore.QSize(401, 17)
+QFrame||ModernRestoreServerDialog:|PyQt6.QtCore.QRect(20, 71, 600, 1)|True|True||background-color: #162234;|||||PyQt6.QtCore.QSize(-1, -1)|PyQt6.QtCore.QSize(-1, -1)
+QScrollArea||ModernRestoreServerDialog:|PyQt6.QtCore.QRect(20, 84, 600, 339)|True|True|||||||PyQt6.QtCore.QSize(401, 86)|PyQt6.QtCore.QSize(46, 46)
+QWidget|qt_scrollarea_viewport|QScrollArea:|PyQt6.QtCore.QRect(0, 0, 600, 339)|True|True|||||||PyQt6.QtCore.QSize(-1, -1)|PyQt6.QtCore.QSize(-1, -1)
+QWidget||QWidget:qt_scrollarea_viewport|PyQt6.QtCore.QRect(0, 0, 600, 339)|True|True|||||||PyQt6.QtCore.QSize(401, 86)|PyQt6.QtCore.QSize(401, 86)
+QVBoxLayout||QWidget:|PyQt6.QtCore.QRect(0, 0, 600, 339)||True|||||||PyQt6.QtCore.QSize(401, 86)|
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 0, 600, 339)|True|True|||||HelpCard||PyQt6.QtCore.QSize(401, 86)|PyQt6.QtCore.QSize(401, 86)
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 598, 337)||True|||||||PyQt6.QtCore.QSize(399, 84)|
+QLabel||QFrame:|PyQt6.QtCore.QRect(21, 25, 558, 289)|True|True|🎉 Todos os servidores de IA estão ativos!
+Nenhum provedor está desativado ou oculto no momento.|color: #4ade80; background: transparent;|||||PyQt6.QtCore.QSize(359, 36)|PyQt6.QtCore.QSize(359, 36)
+QWidget|qt_scrollarea_hcontainer|QScrollArea:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize(39, 7)|PyQt6.QtCore.QSize(39, 7)
+QScrollBar||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize(39, 7)|PyQt6.QtCore.QSize(-1, -1)
+QBoxLayout||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect()||True|||||||PyQt6.QtCore.QSize(39, 7)|
+QWidget|qt_scrollarea_vcontainer|QScrollArea:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize(7, 39)|PyQt6.QtCore.QSize(7, 39)
+QScrollBar||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize(7, 39)|PyQt6.QtCore.QSize(-1, -1)
+QBoxLayout||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect()||True|||||||PyQt6.QtCore.QSize(7, 39)|
+QWidget||QScrollArea:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|||||||PyQt6.QtCore.QSize(-1, -1)|PyQt6.QtCore.QSize(-1, -1)
+QWidget||QScrollArea:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|||||||PyQt6.QtCore.QSize(-1, -1)|PyQt6.QtCore.QSize(-1, -1)
+QPushButton||ModernRestoreServerDialog:|PyQt6.QtCore.QRect(525, 435, 95, 29)|True|True|Fechar (ESC)||||PrimaryBtn||PyQt6.QtCore.QSize(95, 29)|PyQt6.QtCore.QSize(95, 29)

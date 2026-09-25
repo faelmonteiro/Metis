@@ -1,0 +1,66 @@
+QVBoxLayout||ModernApisDialog:|PyQt6.QtCore.QRect()||True|||||||PyQt6.QtCore.QSize(543, 595)|
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(20, 16, 660, 43)||True|||||||PyQt6.QtCore.QSize(503, 43)|
+QVBoxLayout||QHBoxLayout:|PyQt6.QtCore.QRect(54, 16, 469, 43)||True|||||||PyQt6.QtCore.QSize(469, 43)|
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(20, 467, 660, 31)||True|||||||PyQt6.QtCore.QSize(270, 31)|
+QLabel||ModernApisDialog:|PyQt6.QtCore.QRect(20, 16, 22, 43)|True|True|🔑|background: transparent;|||||PyQt6.QtCore.QSize(22, 20)|PyQt6.QtCore.QSize(22, 20)
+QLabel||ModernApisDialog:|PyQt6.QtCore.QRect(54, 16, 469, 24)|True|True|GERENCIAMENTO DE CHAVES DE API & SERVIÇOS|color: #fad094; background: transparent;|||||PyQt6.QtCore.QSize(406, 24)|PyQt6.QtCore.QSize(406, 24)
+QLabel||ModernApisDialog:|PyQt6.QtCore.QRect(54, 42, 469, 17)|True|True|As configurações são salvas com segurança no arquivo .env com permissão restrita|color: #94a3b8; background: transparent;|||||PyQt6.QtCore.QSize(469, 17)|PyQt6.QtCore.QSize(469, 17)
+QFrame||ModernApisDialog:|PyQt6.QtCore.QRect(20, 71, 660, 1)|True|True||background-color: #162234;|||||PyQt6.QtCore.QSize(-1, -1)|PyQt6.QtCore.QSize(-1, -1)
+QScrollArea||ModernApisDialog:|PyQt6.QtCore.QRect(20, 84, 660, 371)|True|True|||||||PyQt6.QtCore.QSize(473, 452)|PyQt6.QtCore.QSize(46, 46)
+QWidget|qt_scrollarea_viewport|QScrollArea:|PyQt6.QtCore.QRect(0, 0, 653, 371)|True|True|||||||PyQt6.QtCore.QSize(-1, -1)|PyQt6.QtCore.QSize(-1, -1)
+QWidget||QWidget:qt_scrollarea_viewport|PyQt6.QtCore.QRect(0, 0, 653, 432)|True|True|||||||PyQt6.QtCore.QSize(473, 432)|PyQt6.QtCore.QSize(473, 432)
+QVBoxLayout||QWidget:|PyQt6.QtCore.QRect()||True|||||||PyQt6.QtCore.QSize(473, 432)|
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 0, 653, 99)|True|True|||||ApiCard||PyQt6.QtCore.QSize(373, 99)|PyQt6.QtCore.QSize(373, 99)
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 651, 97)||True|||||||PyQt6.QtCore.QSize(371, 97)|
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 11, 623, 17)||True|||||||PyQt6.QtCore.QSize(253, 17)|
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 34, 623, 33)||True|||||||PyQt6.QtCore.QSize(208, 33)|
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 11, 167, 17)|True|True|✨  GOOGLE GEMINI API KEY|color: #f0a85d; background: transparent;|||||PyQt6.QtCore.QSize(167, 17)|PyQt6.QtCore.QSize(167, 17)
+QLabel||QFrame:|PyQt6.QtCore.QRect(558, 11, 80, 17)|True|True|● Configurada|color: #4ade80;|||||PyQt6.QtCore.QSize(80, 15)|PyQt6.QtCore.QSize(80, 15)
+QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 34, 543, 33)|True|True|<CHAVE_MASCARADA>|||Digite ou cole sua GEMINI_API_KEY...|KeyInput|EchoMode.Password|PyQt6.QtCore.QSize(128, 33)|PyQt6.QtCore.QSize(57, 33)
+QObject||QLineEdit:|||||||||||
+QPushButton||QFrame:|PyQt6.QtCore.QRect(564, 40, 36, 20)|True|True|👁️||||ActionChip||PyQt6.QtCore.QSize(33, 20)|PyQt6.QtCore.QSize(33, 20)
+QPushButton||QFrame:|PyQt6.QtCore.QRect(606, 38, 32, 25)|True|True|✕||||ActionChip||PyQt6.QtCore.QSize(32, 25)|PyQt6.QtCore.QSize(32, 25)
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 73, 623, 15)|True|True|Obtenha gratuitamente no Google AI Studio (aistudio.google.com)|color: #64748b; background: transparent;|||||PyQt6.QtCore.QSize(343, 15)|PyQt6.QtCore.QSize(343, 15)
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 111, 653, 99)|True|True|||||ApiCard||PyQt6.QtCore.QSize(358, 99)|PyQt6.QtCore.QSize(358, 99)
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 651, 97)||True|||||||PyQt6.QtCore.QSize(356, 97)|
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 11, 623, 17)||True|||||||PyQt6.QtCore.QSize(234, 17)|
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 34, 623, 33)||True|||||||PyQt6.QtCore.QSize(208, 33)|
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 11, 148, 17)|True|True|⚡  GROQ CLOUD API KEY|color: #f0a85d; background: transparent;|||||PyQt6.QtCore.QSize(148, 17)|PyQt6.QtCore.QSize(148, 17)
+QLabel||QFrame:|PyQt6.QtCore.QRect(558, 11, 80, 17)|True|True|● Configurada|color: #4ade80;|||||PyQt6.QtCore.QSize(80, 15)|PyQt6.QtCore.QSize(80, 15)
+QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 34, 543, 33)|True|True|<CHAVE_MASCARADA>|||Digite ou cole sua GROQ_API_KEY...|KeyInput|EchoMode.Password|PyQt6.QtCore.QSize(128, 33)|PyQt6.QtCore.QSize(57, 33)
+QObject||QLineEdit:|||||||||||
+QPushButton||QFrame:|PyQt6.QtCore.QRect(564, 40, 36, 20)|True|True|👁️||||ActionChip||PyQt6.QtCore.QSize(33, 20)|PyQt6.QtCore.QSize(33, 20)
+QPushButton||QFrame:|PyQt6.QtCore.QRect(606, 38, 32, 25)|True|True|✕||||ActionChip||PyQt6.QtCore.QSize(32, 25)|PyQt6.QtCore.QSize(32, 25)
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 73, 623, 15)|True|True|Obtenha gratuitamente no console da Groq (console.groq.com)|color: #64748b; background: transparent;|||||PyQt6.QtCore.QSize(328, 15)|PyQt6.QtCore.QSize(328, 15)
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 222, 653, 99)|True|True|||||ApiCard||PyQt6.QtCore.QSize(282, 99)|PyQt6.QtCore.QSize(282, 99)
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 651, 97)||True|||||||PyQt6.QtCore.QSize(280, 97)|
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 11, 623, 17)||True|||||||PyQt6.QtCore.QSize(227, 17)|
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 34, 623, 33)||True|||||||PyQt6.QtCore.QSize(208, 33)|
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 11, 141, 17)|True|True|🟢  NVIDIA NIM API KEY|color: #f0a85d; background: transparent;|||||PyQt6.QtCore.QSize(141, 17)|PyQt6.QtCore.QSize(141, 17)
+QLabel||QFrame:|PyQt6.QtCore.QRect(558, 11, 80, 17)|True|True|● Configurada|color: #4ade80;|||||PyQt6.QtCore.QSize(80, 15)|PyQt6.QtCore.QSize(80, 15)
+QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 34, 543, 33)|True|True|<CHAVE_MASCARADA>|||Digite ou cole sua NVIDIA_API_KEY...|KeyInput|EchoMode.Password|PyQt6.QtCore.QSize(128, 33)|PyQt6.QtCore.QSize(57, 33)
+QObject||QLineEdit:|||||||||||
+QPushButton||QFrame:|PyQt6.QtCore.QRect(564, 40, 36, 20)|True|True|👁️||||ActionChip||PyQt6.QtCore.QSize(33, 20)|PyQt6.QtCore.QSize(33, 20)
+QPushButton||QFrame:|PyQt6.QtCore.QRect(606, 38, 32, 25)|True|True|✕||||ActionChip||PyQt6.QtCore.QSize(32, 25)|PyQt6.QtCore.QSize(32, 25)
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 73, 623, 15)|True|True|Chave de inferência da NVIDIA (build.nvidia.com)|color: #64748b; background: transparent;|||||PyQt6.QtCore.QSize(252, 15)|PyQt6.QtCore.QSize(252, 15)
+QFrame||QWidget:|PyQt6.QtCore.QRect(0, 333, 653, 99)|True|True|||||ApiCard||PyQt6.QtCore.QSize(473, 99)|PyQt6.QtCore.QSize(473, 99)
+QVBoxLayout||QFrame:|PyQt6.QtCore.QRect(1, 1, 651, 97)||True|||||||PyQt6.QtCore.QSize(471, 97)|
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 11, 623, 17)||True|||||||PyQt6.QtCore.QSize(236, 17)|
+QHBoxLayout||QVBoxLayout:|PyQt6.QtCore.QRect(15, 34, 623, 33)||True|||||||PyQt6.QtCore.QSize(208, 33)|
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 11, 150, 17)|True|True|🌐  OPENROUTER API KEY|color: #f0a85d; background: transparent;|||||PyQt6.QtCore.QSize(150, 17)|PyQt6.QtCore.QSize(150, 17)
+QLabel||QFrame:|PyQt6.QtCore.QRect(558, 11, 80, 17)|True|True|● Configurada|color: #4ade80;|||||PyQt6.QtCore.QSize(80, 15)|PyQt6.QtCore.QSize(80, 15)
+QLineEdit||QFrame:|PyQt6.QtCore.QRect(15, 34, 543, 33)|True|True|<CHAVE_MASCARADA>|||Digite ou cole sua OPENROUTER_API_KEY...|KeyInput|EchoMode.Password|PyQt6.QtCore.QSize(128, 33)|PyQt6.QtCore.QSize(57, 33)
+QObject||QLineEdit:|||||||||||
+QPushButton||QFrame:|PyQt6.QtCore.QRect(564, 40, 36, 20)|True|True|👁️||||ActionChip||PyQt6.QtCore.QSize(33, 20)|PyQt6.QtCore.QSize(33, 20)
+QPushButton||QFrame:|PyQt6.QtCore.QRect(606, 38, 32, 25)|True|True|✕||||ActionChip||PyQt6.QtCore.QSize(32, 25)|PyQt6.QtCore.QSize(32, 25)
+QLabel||QFrame:|PyQt6.QtCore.QRect(15, 73, 623, 15)|True|True|Chave unificada para centenas de modelos comerciais e gratuitos (openrouter.ai/keys)|color: #64748b; background: transparent;|||||PyQt6.QtCore.QSize(443, 15)|PyQt6.QtCore.QSize(443, 15)
+QWidget|qt_scrollarea_hcontainer|QScrollArea:|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize(39, 7)|PyQt6.QtCore.QSize(39, 7)
+QScrollBar||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect(0, 0, 100, 30)|False|True|||||||PyQt6.QtCore.QSize(39, 7)|PyQt6.QtCore.QSize(-1, -1)
+QBoxLayout||QWidget:qt_scrollarea_hcontainer|PyQt6.QtCore.QRect()||True|||||||PyQt6.QtCore.QSize(39, 7)|
+QWidget||QScrollArea:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|||||||PyQt6.QtCore.QSize(-1, -1)|PyQt6.QtCore.QSize(-1, -1)
+QWidget||QScrollArea:|PyQt6.QtCore.QRect(0, 0, 640, 480)|False|True|||||||PyQt6.QtCore.QSize(-1, -1)|PyQt6.QtCore.QSize(-1, -1)
+QWidget|qt_scrollarea_vcontainer|QScrollArea:|PyQt6.QtCore.QRect(653, 0, 7, 371)|True|True|||||||PyQt6.QtCore.QSize(7, 39)|PyQt6.QtCore.QSize(7, 39)
+QScrollBar||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 7, 371)|True|True|||||||PyQt6.QtCore.QSize(7, 39)|PyQt6.QtCore.QSize(-1, -1)
+QBoxLayout||QWidget:qt_scrollarea_vcontainer|PyQt6.QtCore.QRect(0, 0, 7, 371)||True|||||||PyQt6.QtCore.QSize(7, 39)|
+QPushButton||ModernApisDialog:|PyQt6.QtCore.QRect(410, 467, 101, 31)|True|True|Cancelar (ESC)||||SecondaryBtn||PyQt6.QtCore.QSize(101, 31)|PyQt6.QtCore.QSize(101, 31)
+QPushButton||ModernApisDialog:|PyQt6.QtCore.QRect(523, 468, 157, 29)|True|True|💾 Salvar Configurações||||PrimaryBtn||PyQt6.QtCore.QSize(157, 29)|PyQt6.QtCore.QSize(157, 29)

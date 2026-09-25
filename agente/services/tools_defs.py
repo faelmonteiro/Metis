@@ -6,6 +6,7 @@ import json
 import subprocess
 import sys
 import threading
+from contextlib import contextmanager
 from pathlib import Path
 from agente import config
 from agente.colors import RED, GREEN, YELLOW, CYAN, BOLD, RESET
@@ -28,6 +29,28 @@ _auto_approve_context = threading.local()
 def definir_auto_approve(valor: bool) -> None:
     """Define o auto-approve apenas no contexto da thread atual."""
     _auto_approve_context.ativo = bool(valor)
+
+
+@contextmanager
+def auto_approve_temporario(valor: bool):
+    """Habilita o auto-approve no contexto, e restaura o estado anterior.
+
+    O `finally` tem que RESTAURAR, e nao forcar `False`. Um atributo definido
+    na thread tem prioridade sobre o fallback global `AUTO_APPROVE_MODE`, e
+    essa prioridade nao volta: quem forca `False` no fim deixa o `/automode` do
+    CLI morto para sempre naquela thread, sem nenhum sintoma alem de ferramentas
+    de escrita sendo negadas em silencio.
+    """
+    tinha_valor = hasattr(_auto_approve_context, "ativo")
+    valor_anterior = getattr(_auto_approve_context, "ativo", None)
+    definir_auto_approve(valor)
+    try:
+        yield
+    finally:
+        if tinha_valor:
+            _auto_approve_context.ativo = valor_anterior
+        else:
+            del _auto_approve_context.ativo
 
 
 def auto_approve_habilitado() -> bool:
