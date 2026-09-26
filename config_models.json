@@ -1,6 +1,6 @@
 {
-  "active_model": "openai/gpt-oss-120b",
-  "active_provider": "groq",
+  "active_model": "gpt-4o",
+  "active_provider": "g4f",
   "builtin_models": {
     "G4F": [
       "gpt-4o-mini",
@@ -73,8 +73,8 @@
     "font_family": "default",
     "font_size": "medium",
     "is_sidebar_collapsed": false,
-    "last_active_model": "openai/gpt-oss-120b",
-    "last_active_provider": "groq",
+    "last_active_model": "gpt-4o",
+    "last_active_provider": "g4f",
     "neon_glow": true,
     "theme_id": "metis_oracle",
     "web_search_enabled": false,

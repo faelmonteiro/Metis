@@ -98,8 +98,8 @@ else:
 
 HYPRLAND_ENABLED = os.getenv("HYPRLAND_INSTANCE_SIGNATURE", "") != ""
 
-_command_tool_raw = os.getenv("ENABLE_COMMAND_TOOL", "0").strip().lower()
-ENABLE_COMMAND_TOOL = _command_tool_raw in {"1", "true", "yes", "on"}
+_command_tool_raw = os.getenv("ENABLE_COMMAND_TOOL", "1").strip().lower()
+ENABLE_COMMAND_TOOL = _command_tool_raw not in {"0", "false", "no", "off"}
 
 _visual_checklist_raw = os.getenv("AGENT_VISUAL_CHECKLIST", "1").strip().lower()
 AGENT_VISUAL_CHECKLIST = _visual_checklist_raw in {"1", "true", "yes", "on"}
