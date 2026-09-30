@@ -48,13 +48,55 @@ class _ServicoDuble:
         self.erro = erro
         self.nome_provedor = nome_provedor
         self.recebeu = None
+        self.rodadas = []
+        self._esgotou = False
 
-    def gerar_resposta_stream(self, mensagens):
+    @property
+    def _iterations_exhausted(self):
+        """Propriedade, e nao metodo: o worker le o atributo com `getattr`.
+
+        Um metodo aqui seria truthy sempre, e o worker acharia que o limite
+        acabou em toda consulta — emitindo `steps_exhausted` para o vazio.
+        """
+        return self._esgotou
+
+    @_iterations_exhausted.setter
+    def _iterations_exhausted(self, valor):
+        self._esgotou = valor
+
+    def gerar_resposta_stream(self, mensagens, max_iterations=5):
         self.recebeu = mensagens
+        self.rodadas.append(max_iterations)
         if self.erro is not None:
             raise self.erro
         for c in self.chunks:
             yield c
+
+
+class _ServicoQueEsgota(_ServicoDuble):
+    """Servico que esgota o limite de passos ate o usuario dizer quantos quer.
+
+    Reproduz o servico de verdade: marca `_iterations_exhausted` e empurra o
+    aviso de limite para dentro do stream. O `_iterations_exhausted` e
+    propriedade aqui justamente porque o `gerar_resposta_stream` real comeca
+    como gerador e so marca a flag no fim — um atributo de instancia nao
+    reproduziria nada.
+    """
+
+    def __init__(self, respostas=None, erro=None, nome_provedor="groq"):
+        super().__init__(chunks=(), erro=erro, nome_provedor=nome_provedor)
+        self.respostas = respostas or ["trecho"]
+        self._iterations_exhausted = False
+
+    def gerar_resposta_stream(self, mensagens, max_iterations=5):
+        self.recebeu = mensagens
+        self.rodadas.append(max_iterations)
+        self._iterations_exhausted = True
+        if self.erro is not None:
+            raise self.erro
+        for c in self.respostas[:max_iterations] or ["trecho"]:
+            yield c
+        yield "\n[Aviso: Limite de %d execuções de ferramentas atingido para esta rodada.]\n" % max_iterations
 
 
 class _HistoricoDuble:
@@ -93,7 +135,7 @@ class _Registro:
         self.eventos = []
         for nome in ("chunk_received", "search_started", "search_done",
                      "tool_started", "tool_finished", "tool_executed",
-                     "finished_response", "error_occurred"):
+                     "steps_exhausted", "finished_response", "error_occurred"):
             sinal = getattr(worker, nome)
             sinal.connect(self._grava(nome))
 
@@ -216,7 +258,7 @@ class TestPipelineDoWorker(unittest.TestCase):
         alvo = {}
 
         class _CancelaSemGerar(_ServicoDuble):
-            def gerar_resposta_stream(self, mensagens):
+            def gerar_resposta_stream(self, mensagens, max_iterations=5):
                 self.recebeu = mensagens
                 alvo["worker"].cancel()
                 return
@@ -498,6 +540,154 @@ class TestPipelineDoWorker(unittest.TestCase):
         w.cancel()
         reg = self.roda(w)
         self.assertNotIn("search_started", reg.nomes())
+
+    # continuacao de passos -------------------------------------------------
+    #
+    # Sem o `steps_exhausted`, o worker terminava no aviso do servico e o
+    # usuario ficava com uma tarefa pela metade sem nenhuma escolha. O que
+    # importa nao e so perguntar: e o que acontece quando a resposta e "para",
+    # quando o usuario cancela com o dialogo aberto, e quando o teto de rodadas
+    # acaba.
+
+    def _worker_que_responde(self, respostas, servico=None):
+        """Worker cujo `steps_exhausted` e respondido com `respostas`, em ordem.
+
+        `run()` e chamado direto (sem thread), entao o sinal chega antes de o
+        worker chegar no semaforo e o handler responde na hora.
+        """
+        self.pedidos = []
+        w = _worker(service=servico or _ServicoQueEsgota())
+
+        def _responde(passos, rodadas_restantes):
+            self.pedidos.append((passos, rodadas_restantes))
+            w.responder_continuacao(respostas.pop(0))
+
+        w.steps_exhausted.connect(_responde)
+        return w
+
+    def test_limite_atingido_pergunta_antes_de_terminar(self):
+        w = self._worker_que_responde([None])
+        reg = self.roda(w)
+        self.assertIn("steps_exhausted", reg.nomes())
+        self.assertLess(
+            reg.nomes().index("steps_exhausted"),
+            reg.nomes().index("finished_response"),
+        )
+
+    def test_parar_na_primeira_rodada_nao_chama_o_servico_de_novo(self):
+        w = self._worker_que_responde([None])
+        self.roda(w)
+        self.assertEqual(w.service.rodadas, [5])
+
+    def test_o_atalho_s_chama_o_servico_de_novo_com_3_passos(self):
+        """O `3` do atalho e o `max_iterations` da rodada seguinte."""
+        w = self._worker_que_responde([3, None])
+        self.roda(w)
+        self.assertEqual(w.service.rodadas, [5, 3])
+
+    def test_o_numero_que_o_usuario_digita_vira_o_limite(self):
+        w = self._worker_que_responde([12, None])
+        self.roda(w)
+        self.assertEqual(w.service.rodadas, [5, 12])
+
+    def test_o_dialogo_recebe_os_passos_e_as_rodadas_restantes(self):
+        w = self._worker_que_responde([3, 3, 3, None])
+        self.roda(w)
+        self.assertEqual([r for _, r in self.pedidos], [3, 2, 1])
+        self.assertEqual({p for p, _ in self.pedidos}, {5, 3})
+
+    def test_o_texto_das_duas_rodadas_vai_junto(self):
+        w = self._worker_que_responde([3, None])
+        reg = self.roda(w)
+        texto = "".join(e[1] for e in reg.de("chunk_received"))
+        self.assertEqual(texto.count("trecho"), 2)
+        self.assertEqual(w.hm.salvou[-1][1], texto)
+
+    def test_o_aviso_bruto_do_servico_nao_vai_para_o_balao(self):
+        """O aviso entra no stream; a GUI ja mostra o dialogo.
+
+        Sem o filtro, balao e historico guardariam o texto cru do servico alem
+        do dialogo — o mesmo aviso duas vezes, em dois formatos.
+        """
+        w = self._worker_que_responde([3, None])
+        reg = self.roda(w)
+        texto = "".join(e[1] for e in reg.de("chunk_received"))
+        self.assertNotIn("execuções de ferramentas", texto)
+        self.assertNotIn("Aviso: Limite", w.hm.salvou[-1][1])
+
+    def test_o_teto_de_rodadas_avisa_e_encerra(self):
+        """Tres continuacoes e para, mesmo com o usuario sempre dizendo 's'."""
+        w = self._worker_que_responde([3, 3, 3, 3])
+        reg = self.roda(w)
+        texto = "".join(e[1] for e in reg.de("chunk_received"))
+        self.assertIn("continuações", texto)
+        self.assertEqual(w.service.rodadas, [5, 3, 3, 3])
+        self.assertEqual(len(self.pedidos), 3)
+
+    def test_o_aviso_do_teto_sobrevive_ao_fim_da_resposta(self):
+        """O `finished_response` reescreve o balao com a resposta inteira.
+
+        Um aviso que saísse so como chunk desapareceria na ultima atualizacao —
+        o usuario nunca veria que o worker desistiu.
+        """
+        w = self._worker_que_responde([3, 3, 3, 3])
+        reg = self.roda(w)
+        final = reg.de("finished_response")[0][1]
+        self.assertIn("Limite de 3 continuações", final.replace("**", ""))
+        self.assertEqual(w.hm.salvou[-1][1], final)
+
+    def test_o_teto_avisa_o_usuario_antes_de_desistir(self):
+        """A desistencia e do worker, entao precisa dizer que foi ela."""
+        w = self._worker_que_responde([3, 3, 3, 3])
+        reg = self.roda(w)
+        aviso = "".join(e[1] for e in reg.de("chunk_received"))[-260:]
+        self.assertIn("Limite de 3 continuações", aviso.replace("**", ""))
+
+    def test_cancelar_com_o_dialogo_aberto_destrava_o_worker(self):
+        """O `Parar` da janela e o caminho normal de sair do dialogo."""
+        self.pedidos = []
+        w = _worker(service=_ServicoQueEsgota())
+        w.steps_exhausted.connect(lambda *_: w.cancel())
+        reg = self.roda(w)
+        self.assertIn("finished_response", reg.nomes())
+        self.assertEqual(w.service.rodadas, [5])
+
+    def test_resposta_tardia_nao_destrava_a_rodada_seguinte(self):
+        """Duas respostas para o mesmo dialogo nao viram dois `release`.
+
+        O `release` extra ficaria no semaforo e a proxima rodada comecaria sem
+        perguntar — que e o que este teste trava.
+        """
+        w = self._worker_que_responde([None])
+        w.responder_continuacao(3)
+        self.roda(w)
+        self.assertEqual(w.service.rodadas, [5])
+
+    def test_servico_sem_flag_nao_pergunta(self):
+        """Quem nao usa ferramenta nunca esgota o limite; perguntar seria ruido."""
+        w = _worker(service=_ServicoDuble(chunks=["a"]))
+        reg = self.roda(w)
+        self.assertNotIn("steps_exhausted", reg.nomes())
+
+    def test_a_mesma_lista_de_mensagens_via_a_rodada(self):
+        """E o que faz a continuacao retomar de onde parou, e nao recomecar.
+
+        Os servicos acrescentam as chamadas de ferramenta nesta lista; uma copia
+        por rodada faria o agente esquecer o que ja tinha feito.
+        """
+        self.vistas = []
+        servico = _ServicoQueEsgota()
+        w = self._worker_que_responde([3, None], servico=servico)
+        original = servico.gerar_resposta_stream
+
+        def _espia(mensagens, max_iterations=5):
+            self.vistas.append(mensagens)
+            return original(mensagens, max_iterations=max_iterations)
+
+        servico.gerar_resposta_stream = _espia
+        self.roda(w)
+        self.assertEqual(len(self.vistas), 2)
+        self.assertIs(self.vistas[0], self.vistas[1])
 
 
 if __name__ == "__main__":

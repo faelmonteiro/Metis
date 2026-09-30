@@ -60,6 +60,7 @@ from agente.gui.dialogs.info import (  # noqa: F401
     ModernHelpDialog,
     ModernStatusDialog,
 )
+from agente.gui.dialogs.steps import PassosContinuacaoDialog  # noqa: F401
 
 # --- Paginas (mixins) --------------------------------------------------------
 from agente.gui.pages.platform import PlatformMixin  # noqa: F401
@@ -90,7 +91,8 @@ __all__ = [
     "_constrain_dialog_to_parent", "ModernApisDialog",
     "ModernAgentOptionsDialog", "CustomServerDialog", "ModernAddModelDialog",
     "ModernRemoveModelDialog", "ModernRestoreServerDialog", "ModernHelpDialog",
-    "ModernStatusDialog", "PlatformMixin", "DashboardMixin", "SessionsMixin",
+    "ModernStatusDialog", "PassosContinuacaoDialog",
+    "PlatformMixin", "DashboardMixin", "SessionsMixin",
     "AppearanceMixin", "OraclesMixin", "DialogsMixin", "AiMixin", "ChatMixin",
     "format_markdown_to_html", "copiar_para_area_de_transferencia",
     "extrair_itens_comandos", "resolver_comando_instantaneo",

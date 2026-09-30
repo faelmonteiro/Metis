@@ -120,6 +120,7 @@ class CustomOpenAIService(BaseService):
     def gerar_resposta_stream(self, mensagens: list, iteration: int = 0, max_iterations: int = 5) -> Iterator[str]:
         """Entrada pública: reseta o abort e delega ao loop interno."""
         self._aborted = False
+        self._iterations_exhausted = False
         return self._stream_interno(mensagens, iteration=iteration, max_iterations=max_iterations)
 
     def _stream_interno(self, mensagens: list, iteration: int = 0, max_iterations: int = 5) -> Iterator[str]:
@@ -199,6 +200,7 @@ class CustomOpenAIService(BaseService):
 
         if tool_calls_map:
             if iteration >= max_iterations:
+                self._iterations_exhausted = True
                 yield f"\n[Aviso: Limite de {max_iterations} execuções de ferramentas atingido para esta rodada.]\n"
                 return
 

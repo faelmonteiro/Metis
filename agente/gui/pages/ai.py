@@ -66,6 +66,7 @@ _COMANDOS_DIRETOS = {
     "/repetir": "retry_last_query",
 }
 
+from agente.gui.dialogs.steps import PassosContinuacaoDialog
 from agente.gui.widgets.checklist import AgentChecklistWidget
 from agente.gui.workers import (
     AIWorker,
@@ -117,6 +118,7 @@ class AiMixin:
         ("search_started", "_on_search_started"),
         ("tool_started", "_on_tool_started"),
         ("tool_finished", "_on_tool_finished"),
+        ("steps_exhausted", "_on_steps_exhausted"),
         ("finished_response", "_on_finished"),
         ("error_occurred", "_on_error"),
     )
@@ -619,6 +621,29 @@ class AiMixin:
                 self.scroll_chat_to_bottom()
         except Exception as e:
             logger.error(f"Erro em on_tool_finished: {e}")
+
+    def _on_steps_exhausted(self, passos, rodadas_restantes):
+        """O worker esgou os passos da rodada e espera a decisão do usuario.
+
+        O `exec()` e local desta thread (a principal): o worker so espera no
+        semaforo, e e por isso que o dialogo pode ser modal. Responder e
+        obrigatorio mesmo com o dialogo fechado por fora — sem
+        `responder_continuacao`, o worker ficaria parado ate o teto de 15
+        minutos segurando um botao de Parar que nao faz nada.
+        """
+        worker = getattr(self, "active_worker", None)
+        if worker is None:
+            return
+
+        try:
+            dialogo = PassosContinuacaoDialog(
+                self, passos_usados=passos, rodadas_restantes=rodadas_restantes
+            )
+            dialogo.exec()
+            worker.responder_continuacao(dialogo.passos)
+        except Exception as e:
+            logger.error(f"Erro em on_steps_exhausted: {e}")
+            worker.responder_continuacao(None)
 
     def _on_finished(self, final_resp):
         try:

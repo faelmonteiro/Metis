@@ -4,78 +4,72 @@
   "builtin_models": {
     "G4F": [
       "gpt-4o-mini",
-      "gpt-4o"
+      "gpt-4o",
+      "deepseek-r1",
+      "llama-3.3-70b",
+      "qwen-2.5-coder-32b"
+    ],
+    "Gemini": [
+      "gemini-2.0-flash",
+      "gemini-2.0-flash-lite",
+      "gemini-2.5-flash",
+      "gemini-2.5-pro"
+    ],
+    "Groq": [
+      "llama-3.3-70b-versatile",
+      "llama-3.1-8b-instant"
+    ],
+    "NVIDIA": [
+      "meta/llama-3.2-11b-vision-instruct",
+      "meta/llama-3.2-90b-vision-instruct"
     ],
     "Ollama": [
-      "qwen3.5:4b",
+      "llama3.2-vision:11b",
       "qwen3.5:9b",
-      "deepseek-r1:7b",
+      "qwen3.5:4b",
       "llama3.2:3b",
       "qwen2.5-coder:7b",
-      "llama3.2-vision:11b"
+      "deepseek-r1:7b"
+    ],
+    "OpenAI": [
+      "gpt-4o-mini",
+      "gpt-4o"
     ]
   },
   "custom_servers": [
     {
       "id": "openrouter",
       "nome": "OpenRouter",
-      "base_url": "https://openrouter.ai/api/v1",
+      "base_url": "https://openrouter.ai/api/v1/chat/completions",
       "api_key_env": "OPENROUTER_API_KEY",
       "api_key": "",
-      "modelo_atual": "poolside/laguna-s-2.1:free",
+      "modelo_atual": "liquid/lfm-2.5-2.6b:free",
       "modelos": [
-        "poolside/laguna-s-2.1:free",
-        "inclusionai/ling-3.0-flash-fin:free",
         "liquid/lfm-2.5-2.6b:free",
-        "z-ai/glm-5.2:free",
-        "openrouter/free"
-      ]
-    },
-    {
-      "id": "groq",
-      "nome": "Groq",
-      "base_url": "https://api.groq.com/openai/v1/chat/completions",
-      "api_key_env": "GROQ_API_KEY",
-      "api_key": "",
-      "modelo_atual": "openai/gpt-oss-120b",
-      "modelos": [
-        "openai/gpt-oss-120b",
-        "llama-3.3-70b-versatile",
-        "qwen/qwen3.8-27b"
-      ]
-    },
-    {
-      "id": "nvidia",
-      "nome": "Nvidia",
-      "base_url": "https://integrate.api.nvidia.com/v1/chat/completions",
-      "api_key_env": "NVIDIA_API_KEY",
-      "api_key": "",
-      "modelo_atual": "moonshotai/kimi-k3",
-      "modelos": [
-        "moonshotai/kimi-k3",
-        "meta/llama-3.2-11b-vision-instruct",
-        "nvidia/nemotron-3.5-lightning-30b-a3b",
-        "deepseek-ai/deepseek-v4.1-flash"
+        "inclusionai/ling-3.0-flash-fin:free",
+        "minimax/minimax-m3:free",
+        "poolside/laguna-s-2.1:free"
       ]
     }
   ],
   "preferences": {
-    "active_model": "meta/llama-3.2-11b-vision-instruct",
+    "active_model": "inclusionai/ling-3.0-flash-fin:free",
     "active_models": {
       "default_provider": "openrouter",
       "g4f": "gpt-4o",
-      "groq": "openai/gpt-oss-120b",
-      "nvidia": "moonshotai/kimi-k3",
+      "gemini": "gemini-2.0-flash",
+      "groq": "llama-3.3-70b-versatile",
+      "nvidia": "meta/llama-3.2-11b-vision-instruct",
       "ollama": "llama3.2:3b",
-      "openrouter": "poolside/laguna-s-2.1:free"
+      "openrouter": "liquid/lfm-2.5-2.6b:free"
     },
     "copy_btn": true,
-    "font_family": "default",
+    "copy_btn_enabled": true,
+    "font_family": "roboto",
     "font_size": "medium",
-    "is_sidebar_collapsed": false,
     "last_active_model": "gpt-4o",
     "last_active_provider": "g4f",
-    "neon_glow": true,
+    "neon_glow": false,
     "theme_id": "metis_oracle",
     "web_search_enabled": false,
     "window_opacity": 90,
@@ -85,9 +79,6 @@
     ]
   },
   "removed_models": {},
-  "removed_servers": [
-    "gemini",
-    "openai"
-  ],
+  "removed_servers": [],
   "schema_version": 2
 }

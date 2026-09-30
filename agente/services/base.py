@@ -42,6 +42,7 @@ class BaseService(ABC):
     def __init__(self):
         self._active_stream = None
         self._aborted = False
+        self._iterations_exhausted = False
 
     def abort(self):
         """Interrompe qualquer conexão HTTP ou stream ativo imediatamente."""
@@ -54,7 +55,7 @@ class BaseService(ABC):
             self._active_stream = None
 
     @abstractmethod
-    def gerar_resposta_stream(self, mensagens: list) -> Iterator[str]:
+    def gerar_resposta_stream(self, mensagens: list, max_iterations: int = 5) -> Iterator[str]:
         """Gera a resposta da LLM via streaming, fazendo yield de chunks de string."""
         pass
         

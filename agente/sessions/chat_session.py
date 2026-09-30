@@ -118,11 +118,51 @@ def processar_pergunta(pergunta: str, hm: HistoryManager, service: BaseService, 
     resposta_completa = ""
     erro = False
     tempo_inicio = time.monotonic()
+    max_iterations_atual = 5
 
     try:
         print(f"\033[K{BOLD}Assistente:{RESET}")
-        resposta_completa = imprimir_stream_colorido(service.gerar_resposta_stream(mensagens))
+        resposta_completa = imprimir_stream_colorido(service.gerar_resposta_stream(mensagens, max_iterations=max_iterations_atual))
         print()
+
+        # Loop de continuação: perguntar ao usuário se quer mais passos
+        while getattr(service, "_iterations_exhausted", False):
+            desbloquear_teclado()
+            try:
+                resposta_input = safe_input(
+                    f"\n{YELLOW}⚡ A tarefa ainda não terminou. Deseja adicionar mais passos? "
+                    f"({GREEN}s{RESET}{YELLOW} = +3 passos | "
+                    f"{GREEN}número{RESET}{YELLOW} = passos específicos | "
+                    f"{RED}n{RESET}{YELLOW} = parar): {RESET}"
+                ).strip().lower()
+            except (KeyboardInterrupt, EOFError):
+                print()
+                break
+
+            if not resposta_input or resposta_input == "n":
+                break
+
+            if resposta_input == "s":
+                passos_extras = 3
+            else:
+                try:
+                    passos_extras = int(resposta_input)
+                    if passos_extras <= 0:
+                        print(f"{RED}Valor inválido. Use um número positivo.{RESET}")
+                        continue
+                except ValueError:
+                    print(f"{RED}Entrada inválida. Digite 's', um número ou 'n'.{RESET}")
+                    continue
+
+            print(f"\n{GREEN}➕ Adicionando {passos_extras} passo(s) extra(s)...{RESET}")
+            bloquear_teclado()
+
+            max_iterations_atual = passos_extras
+            resposta_extra = imprimir_stream_colorido(service.gerar_resposta_stream(mensagens, max_iterations=max_iterations_atual))
+            print()
+
+            if resposta_extra.strip():
+                resposta_completa += resposta_extra
 
     except KeyboardInterrupt:
         print(f"\n{YELLOW}[Interrompido pelo usuário]{RESET}")

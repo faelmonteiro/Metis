@@ -146,6 +146,7 @@ class NvidiaService(BaseService):
     def nome_provedor(self) -> str:
         return f"NVIDIA ({self.model})"
 
-    def gerar_resposta_stream(self, mensagens: list):
+    def gerar_resposta_stream(self, mensagens: list, max_iterations: int = 5):
         self._aborted = False
+        self._iterations_exhausted = False
         return gerar_resposta_stream(mensagens, model=self.model, service=self)

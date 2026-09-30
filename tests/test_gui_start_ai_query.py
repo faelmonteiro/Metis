@@ -2,7 +2,7 @@
 
 O fingerprint de arvore cobre montagem. Aqui o risco e outro: o metodo decide
 enfileirar ou nao, escolhe o texto que o usuario ve, monta o `AIWorker` e liga
-seis sinais. Um desvio nessas decisoes nao quebra build, nao quebra a impressao
+os sinais do worker. Um desvio nessas decisoes nao quebra build, nao quebra a impressao
 digital e nao quebra nenhuma assertiva de widget — a consulta simplesmente
 responde a coisa errada, ou a fila trava silenciosamente.
 
@@ -29,7 +29,7 @@ _APP = None
 # Workflow silenciosamente quebrado.
 SINAIS = (
     "chunk_received", "search_started", "tool_started",
-    "tool_finished", "finished_response", "error_occurred",
+    "tool_finished", "steps_exhausted", "finished_response", "error_occurred",
 )
 
 # As chaves que o produtor (enfileirar) escreve e que `_process_next_in_queue`
@@ -361,9 +361,74 @@ class TestStartAIQuery(unittest.TestCase):
         self.chama("ola")
         self.assertFalse(self.win.btn_stop.isHidden())
 
-    def test_os_seis_sinais_sao_ligados(self):
+    def test_todos_os_sinais_sao_ligados(self):
         self.chama("ola")
         self.assertEqual(set(self.worker.conectados), set(SINAIS))
+
+    # continuacao de passos --------------------------------------------------
+
+    def _dialogo_que_responde(self, passos):
+        """Troca o dialogo modal por um duble que devolve `passos`.
+
+        O `exec()` do dialogo real bloqueia a thread principal esperando o
+        usuario, e o `passos` e um atributo lido depois dele — que e o contrato
+        que o teste do dialogo (`test_gui_passos_dialogo.py`) cobre.
+        """
+        d = mock.Mock()
+        d.passos = passos
+        d.exec = mock.Mock()
+        p = mock.patch("agente.gui.pages.ai.PassosContinuacaoDialog", return_value=d)
+        cls = p.start()
+        self.addCleanup(p.stop)
+        return cls
+
+    def test_a_resposta_do_dialogo_vai_para_o_worker(self):
+        self.chama("ola")
+        self._dialogo_que_responde(7)
+        self.worker.responder_continuacao = mock.Mock()
+
+        self.worker.handler("steps_exhausted")(5, 3)
+
+        self.worker.responder_continuacao.assert_called_once_with(7)
+
+    def test_o_dialogo_recebe_os_passos_e_as_rodadas_restantes(self):
+        """O rotulo do dialogo depende dos dois numeros do sinal."""
+        self.chama("ola")
+        d = self._dialogo_que_responde(3)
+        self.worker.responder_continuacao = mock.Mock()
+
+        self.worker.handler("steps_exhausted")(5, 2)
+
+        _, kwargs = d.call_args
+        self.assertEqual(kwargs["passos_usados"], 5)
+        self.assertEqual(kwargs["rodadas_restantes"], 2)
+
+    def test_dialogo_que_quebra_ainda_responde_o_worker(self):
+        """Sem resposta, o worker ficaria no semaforo ate o teto de 15 minutos.
+
+        O `None` e a saida que encerra a tarefa: perder a resposta e o mesmo que
+        o usuario ter mandado parar, e e o unico desfecho que nao trava nada.
+        """
+        self.chama("ola")
+        p = mock.patch("agente.gui.pages.ai.PassosContinuacaoDialog",
+                       side_effect=RuntimeError("sem memoria"))
+        p.start()
+        self.addCleanup(p.stop)
+        self.worker.responder_continuacao = mock.Mock()
+
+        self.worker.handler("steps_exhausted")(5, 3)
+
+        self.worker.responder_continuacao.assert_called_once_with(None)
+
+    def test_sem_worker_ativo_o_sinal_nao_faz_nada(self):
+        """`active_worker` ja e None quando a fila anda: nao ha a quem perguntar."""
+        self.chama("ola")
+        self.win.active_worker = None
+        d = self._dialogo_que_responde(3)
+
+        self.worker.handler("steps_exhausted")(5, 3)
+
+        d.assert_not_called()
 
     # sinais ----------------------------------------------------------------
 

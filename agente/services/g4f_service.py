@@ -67,7 +67,7 @@ class G4FService(BaseService):
     def nome_provedor(self) -> str:
         return f"G4F ({self.model})"
 
-    def gerar_resposta_stream(self, mensagens: list):
+    def gerar_resposta_stream(self, mensagens: list, max_iterations: int = 5):
         # G4F currently doesn't stream well, so we yield the full response.
         # As chamadas são síncronas e não interrompíveis no meio; se o usuário
         # abortar durante a geração, o resultado completo é descartado.

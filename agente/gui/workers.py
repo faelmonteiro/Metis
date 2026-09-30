@@ -7,12 +7,13 @@ mantem a interface responsiva durante o streaming.
 
 from PyQt6.QtCore import (
     QThread,
+    QSemaphore,
     pyqtSignal,
 )
 
 from typing import Optional
 
-import logging, time
+import logging, re, threading, time
 
 from agente.history import HistoryManager
 from agente.prompts import (
@@ -24,6 +25,30 @@ from agente.services import tools_defs
 logger = logging.getLogger(__name__)
 
 
+# Quantas execucoes de ferramenta o agente ganha por rodada. E o `max_iterations`
+# que os servicos recebem; o TUI tem o mesmo padrao em `chat_session.py`.
+PASSOS_POR_RODADA = 5
+
+# Quantas vezes a tarefa pode ser retomada antes de o worker desistir sozinho.
+# Sem teto, um agente que decide usar ferramenta eternamente (modelo fraco,
+# ferramenta que devolve erro) reabre o dialogo para sempre, e cada rodada
+# custa uma chamada.
+MAX_RODADAS_DE_CONTINUACAO = 3
+
+# Rede de seguranca do semaforo: se a thread principal nunca responder (janela
+# morta no meio do `exec()`), o worker para de esperar em vez de travar a
+# thread para sempre. Longo demais para incomodar o usuario, curto demais para
+# deixar um worker orfao.
+ESPERA_MAXIMA_POR_CONTINUACAO_MS = 15 * 60 * 1000
+
+# O servico avisa o limite empurrando esse texto para dentro da resposta. Na
+# GUI ele e redundante: o dialogo de continuacao ja diz o que aconteceu, e o
+# texto ficaria no balao e no historico. E filtrado na chegada do chunk, e nao
+# no servico, porque o TUI ainda depende dele.
+AVISO_DE_LIMITE_DE_PASSOS = re.compile(
+    r"\n?\[Aviso: Limite de \d+ execuções de ferramentas atingido "
+    r"para esta rodada\.\]\n?"
+)
 
 
 # -----------------------------------------------------------------------------
@@ -36,6 +61,10 @@ class AIWorker(QThread):
     tool_executed = pyqtSignal(str)
     finished_response = pyqtSignal(str)
     error_occurred = pyqtSignal(str)
+    # (passos da rodada que acabou, quantas rodadas ainda podem ser retomadas).
+    # A GUI responde com `responder_continuacao`; sem isso, esta thread fica
+    # parada esperando.
+    steps_exhausted = pyqtSignal(int, int)
 
     def __init__(
         self,
@@ -54,6 +83,14 @@ class AIWorker(QThread):
         self.media_paths = media_paths or []
         self.file_attachment_context = file_attachment_context
         self._is_cancelled = False
+        # Trava entre as duas threads: o worker para depois de emitir
+        # `steps_exhausted` e a thread principal acorda em
+        # `responder_continuacao`. `None` e o valor que significa "para".
+        self._semaforo_continuacao = QSemaphore(0)
+        self._trava_continuacao = threading.Lock()
+        self._armado_para_continuacao = False
+        self._respondeu_continuacao = False
+        self._passos_continuacao = None
 
     def cancel(self):
         self._is_cancelled = True
@@ -62,6 +99,28 @@ class AIWorker(QThread):
                 self.service.abort()
             except Exception as _silent_e:
                 logger.debug("Exceção silenciosa tratada: %s", _silent_e, exc_info=True)
+        # Parar com o dialogo aberto e o caminho normal: sem isto, a thread
+        # ficaria parada no semaforo ate o teto de 15 minutos, e o `Parar` da
+        # janela nao faria nada.
+        self.responder_continuacao(None)
+
+    def responder_continuacao(self, passos: Optional[int]):
+        """Destrava o worker parado em `steps_exhausted`.
+
+        `passos` positivo continua a tarefa com aquele limite; `None` encerra.
+        Chamadas fora de hora sao ignoradas: um `release` sobrando ficaria no
+        semaforo e a proxima rodada comecaria sem perguntar.
+
+        A trava cobre o par resposta/`release`: sem ela, o `release` do botao
+        pode caber entre o `tryAcquire` e a limpeza do waiter, e o token ficava
+        orfao no semaforo.
+        """
+        with self._trava_continuacao:
+            if not self._armado_para_continuacao or self._respondeu_continuacao:
+                return
+            self._respondeu_continuacao = True
+            self._passos_continuacao = passos
+        self._semaforo_continuacao.release()
 
     def run(self):
         from agente.services.tool_executor import register_tool_listener, unregister_tool_listener
@@ -222,20 +281,98 @@ class AIWorker(QThread):
         )
 
     def _consumir_stream(self, mensagens):
-        """Acumula os chunks, parando se o usuario cancelar no meio."""
+        """Acumula os chunks, parando se o usuario cancelar no meio.
+
+        Quando o servico esgota `max_iterations`, pergunta a thread principal
+        quantos passos extras quer e chama o servico de novo. `mensagens` e a
+        MESMA lista em todas as rodadas — os servicos acrescentam nela as
+        chamadas de ferramenta e os resultados, e e isso que faz a continuacao
+        retomar de onde parou em vez de refazer a tarefa do zero.
+        """
         full_response = ""
-        try:
-            for chunk in self.service.gerar_resposta_stream(mensagens):
-                if self._is_cancelled:
-                    return self._marcar_interrompida(full_response)
-                full_response += chunk
-                self.chunk_received.emit(chunk)
-        except Exception as stream_err:
-            # Cancelar derruba o stream com excecao; isso nao e falha do oráculo.
-            if not self._is_cancelled:
-                raise stream_err
-            return self._marcar_interrompida(full_response)
-        return full_response
+        rodadas = 0
+        passos = PASSOS_POR_RODADA
+
+        while True:
+            try:
+                for chunk in self.service.gerar_resposta_stream(
+                    mensagens, max_iterations=passos
+                ):
+                    if self._is_cancelled:
+                        return self._marcar_interrompida(full_response)
+                    chunk = AVISO_DE_LIMITE_DE_PASSOS.sub("", chunk)
+                    if not chunk:
+                        continue
+                    full_response += chunk
+                    self.chunk_received.emit(chunk)
+            except Exception as stream_err:
+                # Cancelar derruba o stream com excecao; isso nao e falha do oráculo.
+                if not self._is_cancelled:
+                    raise stream_err
+                return self._marcar_interrompida(full_response)
+
+            if self._is_cancelled or not self._limite_de_passos_atingido():
+                return full_response
+
+            rodadas += 1
+            if rodadas > MAX_RODADAS_DE_CONTINUACAO:
+                return full_response + self._aviso_de_teto_de_rodadas()
+
+            self._armar_continuacao()
+            self.steps_exhausted.emit(passos, MAX_RODADAS_DE_CONTINUACAO - rodadas + 1)
+            self._esperar_continuacao()
+
+            passos = self._passos_continuacao
+            if not passos:
+                return full_response
+
+    def _limite_de_passos_atingido(self):
+        """True quando o servico parou de proposito, e nao porque acabou.
+
+        Nem todo servico marca isso: quem nao usa ferramenta (NVIDIA, G4F) nunca
+        esgota o limite, e nesse caso perguntar quantos passos extras o usuario
+        quer seria um dialogo sem motivo.
+        """
+        return bool(getattr(self.service, "_iterations_exhausted", False))
+
+    def _armar_continuacao(self):
+        """Aceita a resposta do proximo `steps_exhausted` e zera a anterior.
+
+        Antes do `emit`, e nao depois: com conexao direta entre sinais (que e o
+        caso dos testes, rodando `run()` na mesma thread) o handler responde
+        ainda dentro do `emit`, e limpar depois apagaria a resposta.
+        """
+        with self._trava_continuacao:
+            self._armado_para_continuacao = True
+            self._respondeu_continuacao = False
+            self._passos_continuacao = None
+
+    def _esperar_continuacao(self):
+        """Trava esta thread ate a principal responder (ou desistir)."""
+        # `tryAcquire` em vez de `acquire`: um `release` perdido deixaria a
+        # thread presa para sempre, e nao ha como reaprovisionar depois.
+        if not self._semaforo_continuacao.tryAcquire(1, ESPERA_MAXIMA_POR_CONTINUACAO_MS):
+            logger.warning(
+                "Continuação sem resposta após o tempo limite; encerrando a tarefa.")
+
+        with self._trava_continuacao:
+            self._armado_para_continuacao = False
+
+    def _aviso_de_teto_de_rodadas(self):
+        """Texto que substitui o dialogo quando o worker desiste sozinho.
+
+        Sai nos dois canais de proposito: o `chunk` pinta o balao na hora, e o
+        retorno entra em `full_response`. So no chunk nao bastaria — o
+        `finished_response` reescreve o balao com a resposta inteira, e o aviso
+        sumiria da tela na ultima atualizacao.
+        """
+        aviso = (
+            f"\n\n⚠️ **Limite de {MAX_RODADAS_DE_CONTINUACAO} continuações atingido.** "
+            "Se a tarefa ainda não terminou, reenvie o pedido pedindo só a parte "
+            "que falta, ou peça um plano passo a passo para executar na sequência."
+        )
+        self.chunk_received.emit(aviso)
+        return aviso
 
     def _marcar_interrompida(self, full_response):
         """Acrescenta o aviso de interrupcao, uma vez so."""

@@ -147,6 +147,8 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
         if service and getattr(service, "_aborted", False):
             return
         if iteration >= max_iterations:
+            if service:
+                service._iterations_exhausted = True
             yield f"\n[Aviso: Limite de {max_iterations} execuções de ferramentas atingido para esta rodada.]\n"
             return
 
@@ -162,6 +164,7 @@ class GroqService(BaseService):
     def nome_provedor(self) -> str:
         return f"GROQ ({self.model})"
 
-    def gerar_resposta_stream(self, mensagens: list):
+    def gerar_resposta_stream(self, mensagens: list, max_iterations: int = 5):
         self._aborted = False
-        return gerar_resposta_stream(mensagens, model=self.model, service=self)
+        self._iterations_exhausted = False
+        return gerar_resposta_stream(mensagens, model=self.model, service=self, max_iterations=max_iterations)

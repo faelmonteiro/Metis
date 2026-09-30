@@ -165,6 +165,8 @@ def gerar_resposta_stream(mensagens: list, iteration: int = 0, max_iterations: i
 
     if function_calls_detected:
         if iteration >= max_iterations:
+            if service:
+                service._iterations_exhausted = True
             yield f"\n[Aviso: Limite de {max_iterations} execuções de ferramentas atingido para esta rodada.]\n"
             return
 
@@ -197,6 +199,7 @@ class GeminiService(BaseService):
     def nome_provedor(self) -> str:
         return f"GEMINI ({self.model})"
 
-    def gerar_resposta_stream(self, mensagens: list):
+    def gerar_resposta_stream(self, mensagens: list, max_iterations: int = 5):
         self._aborted = False
-        return gerar_resposta_stream(mensagens, model=self.model, service=self)
+        self._iterations_exhausted = False
+        return gerar_resposta_stream(mensagens, model=self.model, service=self, max_iterations=max_iterations)

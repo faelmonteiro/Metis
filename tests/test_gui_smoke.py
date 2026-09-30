@@ -185,6 +185,7 @@ METODOS_ESPERADOS = frozenset({
     "_on_error",
     "_on_finished",
     "_on_search_started",
+    "_on_steps_exhausted",
     "_on_tool_finished",
     "_on_tool_started",
     "_parar_timers_de_render",
@@ -247,6 +248,11 @@ METODOS_ESPERADOS = frozenset({
 
 # (classe, argumentos) = assinatura real em gui_app.py. Os dialogs sao
 # construtos sob demanda, entao so o smoke test os exercita.
+#
+# So entram aqui os que tem baseline em `gui_dialogos/`: o registro e a
+# impressao digital da arvore, e um baseline novo exigiria regenerar os
+# demais (a geometria impressa depende da tela de quem roda). O dialogo de
+# continuacao de passos tem teste proprio, em `test_gui_passos_dialogo.py`.
 DIALOGOS = [
     ("ModernApisDialog", lambda w: (w,)),
     ("ModernAgentOptionsDialog", lambda w: (w,)),
@@ -512,7 +518,7 @@ class TestGuiSmoke(unittest.TestCase):
         self.assertTrue(g.QSS_STYLE.strip())
 
     def test_dialogs_constroem(self):
-        """Os 8 dialogs, cada um com a assinatura real de gui_app.py."""
+        """Todos os dialogs, cada um com a assinatura real de gui_app.py."""
         import agente.ui.gui_app as g
 
         for nome, montar_args in DIALOGOS:
