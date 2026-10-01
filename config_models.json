@@ -9,20 +9,6 @@
       "llama-3.3-70b",
       "qwen-2.5-coder-32b"
     ],
-    "Gemini": [
-      "gemini-2.0-flash",
-      "gemini-2.0-flash-lite",
-      "gemini-2.5-flash",
-      "gemini-2.5-pro"
-    ],
-    "Groq": [
-      "llama-3.3-70b-versatile",
-      "llama-3.1-8b-instant"
-    ],
-    "NVIDIA": [
-      "meta/llama-3.2-11b-vision-instruct",
-      "meta/llama-3.2-90b-vision-instruct"
-    ],
     "Ollama": [
       "llama3.2-vision:11b",
       "qwen3.5:9b",
@@ -30,10 +16,6 @@
       "llama3.2:3b",
       "qwen2.5-coder:7b",
       "deepseek-r1:7b"
-    ],
-    "OpenAI": [
-      "gpt-4o-mini",
-      "gpt-4o"
     ]
   },
   "custom_servers": [
@@ -45,21 +27,15 @@
       "api_key": "",
       "modelo_atual": "liquid/lfm-2.5-2.6b:free",
       "modelos": [
-        "liquid/lfm-2.5-2.6b:free",
-        "inclusionai/ling-3.0-flash-fin:free",
-        "minimax/minimax-m3:free",
-        "poolside/laguna-s-2.1:free"
+        "liquid/lfm-2.5-2.6b:free"
       ]
     }
   ],
   "preferences": {
     "active_model": "inclusionai/ling-3.0-flash-fin:free",
     "active_models": {
-      "default_provider": "openrouter",
+      "default_provider": "g4f",
       "g4f": "gpt-4o",
-      "gemini": "gemini-2.0-flash",
-      "groq": "llama-3.3-70b-versatile",
-      "nvidia": "meta/llama-3.2-11b-vision-instruct",
       "ollama": "llama3.2:3b",
       "openrouter": "liquid/lfm-2.5-2.6b:free"
     },
@@ -67,10 +43,11 @@
     "copy_btn_enabled": true,
     "font_family": "roboto",
     "font_size": "medium",
+    "is_sidebar_collapsed": false,
     "last_active_model": "gpt-4o",
     "last_active_provider": "g4f",
     "neon_glow": false,
-    "theme_id": "metis_oracle",
+    "theme_id": "olympus_greek",
     "web_search_enabled": false,
     "window_opacity": 90,
     "window_size": [
@@ -79,6 +56,11 @@
     ]
   },
   "removed_models": {},
-  "removed_servers": [],
+  "removed_servers": [
+    "nvidia",
+    "groq",
+    "gemini",
+    "openai"
+  ],
   "schema_version": 2
 }

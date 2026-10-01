@@ -12,7 +12,23 @@ services:
     volumes:
       - ./agente:/app/agente
       - ./app.py:/app/app.py
-      - ./config_models.json:/app/config_models.json
+      # METIS_CONFIG_DIR precisa existir DENTRO do container e conter config_models.json
+      # e .env. Sem este mapeamento o app lia/gravava em /root/.config/metis, que não é
+      # volume: toda exclusão de servidor era perdida em `docker compose down`.
+      # `create_host_path: false` é obrigatório aqui: sem ele o Docker cria um
+      # DIRETÓRIO com o nome do arquivo quando ele não existe no host (e o .env é
+      # gitignored, então isso é o caso de qualquer clone novo) — o container sobe
+      # e o config some. Com a flag, o compose falha alto e diz o que falta.
+      - type: bind
+        source: ./config_models.json
+        target: /app/.config/metis/config_models.json
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./.env
+        target: /app/.config/metis/.env
+        bind:
+          create_host_path: false
       - ./historico:/app/historico
     network_mode: "host"
     stdin_open: true

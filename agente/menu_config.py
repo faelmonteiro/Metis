@@ -264,8 +264,10 @@ def remover_servidor_wizard() -> None:
 
     srvs_para_remover = [servidores[idx] for idx in indices]
     for srv in srvs_para_remover:
-        remover_servidor_customizado(srv["id"])
-        print(f"{GREEN}✅ Servidor '{srv['nome']}' removido com sucesso!{RESET}")
+        if remover_servidor_customizado(srv["id"]):
+            print(f"{GREEN}✅ Servidor '{srv['nome']}' removido com sucesso!{RESET}")
+        else:
+            print(f"{RED}✗ Servidor '{srv['nome']}' não encontrado — nada foi removido.{RESET}")
 
 
 def trocar_modelo_ollama():

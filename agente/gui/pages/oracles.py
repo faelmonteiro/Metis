@@ -867,7 +867,14 @@ class OraclesMixin:
             QMessageBox.StandardButton.No
         )
         if res == QMessageBox.StandardButton.Yes:
-            remover_servidor_customizado(server_id)
+            if not remover_servidor_customizado(server_id):
+                QMessageBox.warning(
+                    self,
+                    "Exclusão Falhou",
+                    f"O servidor '{nome}' não foi encontrado no arquivo de configuração.\n\n"
+                    "Nada foi excluído."
+                )
+                return
             self.ensure_active_provider_valid()
             self.rebuild_oracle_buttons()
             self.refresh_telemetry()
@@ -899,7 +906,14 @@ class OraclesMixin:
             QMessageBox.StandardButton.No
         )
         if res == QMessageBox.StandardButton.Yes:
-            remover_servidor_provedor(provider_key)
+            if not remover_servidor_provedor(provider_key):
+                QMessageBox.warning(
+                    self,
+                    "Exclusão Falhou",
+                    f"O servidor '{provider_key}' não foi encontrado no arquivo de configuração.\n\n"
+                    "Nada foi excluído."
+                )
+                return
             self.ensure_active_provider_valid()
             self.rebuild_oracle_buttons()
             self.refresh_telemetry()

@@ -98,6 +98,82 @@ def purge_model_from_legacy_files(model_id: str) -> int:
 
     return changed_total
 
+
+def purge_server_from_legacy_files(server_id: str, server_name: str = "") -> int:
+    """
+    Remove uma entrada inteira de `custom_servers` (e a chave em `builtin_models`)
+    das cópias legadas do config ao excluir um servidor.
+
+    `purge_model_from_legacy_files` só limpa IDs de modelo, então a exclusão de um
+    servidor deixava a entrada para sempre em /Metis/config_models.json.
+
+    Só age quando o config em uso é o padrão de produção (~/.config/metis);
+    em execuções isoladas (METIS_CONFIG_DIR alternativo) não toca arquivos reais.
+    """
+    if CONFIG_FILE.parent != Path.home() / ".config" / "metis":
+        return 0
+
+    needles = {n.strip().lower() for n in (server_id, server_name) if n and n.strip()}
+    if not needles:
+        return 0
+
+    changed_total = 0
+    for path in _legacy_config_paths():
+        if not path.exists():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+
+        changed = False
+
+        servers = data.get("custom_servers")
+        if isinstance(servers, list):
+            kept = [
+                s for s in servers
+                if not (
+                    str(s.get("id", "")).strip().lower() in needles
+                    or str(s.get("nome", "")).strip().lower() in needles
+                )
+            ]
+            if len(kept) != len(servers):
+                data["custom_servers"] = kept
+                changed = True
+
+        bmodels = data.get("builtin_models")
+        if isinstance(bmodels, dict):
+            for key in list(bmodels.keys()):
+                if key.strip().lower() in needles:
+                    del bmodels[key]
+                    changed = True
+
+        prefs = data.get("preferences")
+        if isinstance(prefs, dict):
+            active_models = prefs.get("active_models")
+            if isinstance(active_models, dict):
+                for key in list(active_models.keys()):
+                    if key.strip().lower() in needles:
+                        del active_models[key]
+                        changed = True
+            ultimo = str(prefs.get("last_active_provider", "")).strip().lower().removeprefix("custom:")
+            if ultimo in needles:
+                prefs["last_active_provider"] = ""
+                changed = True
+
+        if str(data.get("active_provider", "")).strip().lower() in needles:
+            data["active_provider"] = ""
+            changed = True
+
+        if changed:
+            tmp = path.with_name(path.name + ".tmp")
+            tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+            tmp.replace(path)
+            changed_total += 1
+
+    return changed_total
+
+
 DEFAULT_CONFIG: Dict[str, Any] = {
     "schema_version": 2,
     "builtin_models": {},
@@ -135,7 +211,10 @@ def load_config(force_reload: bool = False) -> Dict[str, Any]:
     with _config_lock:
         if not CONFIG_FILE.exists():
             _config_cache = None
-            return dict(DEFAULT_CONFIG)
+            # Cópia profunda: `dict(DEFAULT_CONFIG)` compartilha os dicionários e
+            # listas do default com o chamador, e qualquer `append`/`[...] = x`
+            # do config devolvido vazava para o DEFAULT_CONFIG do processo.
+            return _copy.deepcopy(DEFAULT_CONFIG)
 
         try:
             mtime = CONFIG_FILE.stat().st_mtime_ns
@@ -156,7 +235,7 @@ def load_config(force_reload: bool = False) -> Dict[str, Any]:
             result = _merge_with_defaults(data)
         except (json.JSONDecodeError, OSError) as exc:
             logger.warning("config_models.json ilegível (%s); usando defaults", exc)
-            return dict(DEFAULT_CONFIG)
+            return _copy.deepcopy(DEFAULT_CONFIG)
 
         _config_cache = (mtime, result)
         return _copy.deepcopy(result)

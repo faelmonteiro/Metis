@@ -4,7 +4,7 @@ Single source of truth para config_models.json (~/.config/metis/).
 """
 
 # Storage (atomic load/save)
-from .storage import load_config, save_config, CONFIG_FILE, CONFIG_DIR, purge_model_from_legacy_files
+from .storage import load_config, save_config, CONFIG_FILE, CONFIG_DIR, purge_model_from_legacy_files, purge_server_from_legacy_files
 
 # Schema (data models)
 from .schema import ConfigModel, CustomServer, Preferences, validate_provider_name, validate_model_id
@@ -47,6 +47,8 @@ from .preferences import (
     is_server_removed,
     remove_server,
     restore_server,
+    purge_server_references,
+    drop_server_from_removed_list,
     get_env_var,
     save_env_var,
     remove_env_var,
@@ -60,6 +62,7 @@ __all__ = [
     "CONFIG_FILE",
     "CONFIG_DIR",
     "purge_model_from_legacy_files",
+    "purge_server_from_legacy_files",
     # Schema
     "ConfigModel",
     "CustomServer",
@@ -97,6 +100,8 @@ __all__ = [
     "get_removed_servers",
     "remove_server",
     "restore_server",
+    "purge_server_references",
+    "drop_server_from_removed_list",
     "get_env_var",
     "save_env_var",
     "remove_env_var",

@@ -151,12 +151,16 @@ class CustomServerDialog(QDialog):
             QMessageBox.warning(self, "Campos Obrigatórios", "Informe ao menos o Nome e a URL da API.")
             return
 
-        salvar_servidor_customizado(
-            nome=nome,
-            base_url=url,
-            api_key=key,
-            modelo_padrao=modelo
-        )
+        try:
+            salvar_servidor_customizado(
+                nome=nome,
+                base_url=url,
+                api_key=key,
+                modelo_padrao=modelo
+            )
+        except ValueError as exc:
+            QMessageBox.warning(self, "Nome em Conflito", str(exc))
+            return
 
         self.server_saved.emit()
         self.accept()
@@ -596,9 +600,17 @@ class ModernRemoveModelDialog(QDialog):
         )
         if res == QMessageBox.StandardButton.Yes:
             if self.server_id:
-                remover_servidor_customizado(self.server_id)
+                ok = remover_servidor_customizado(self.server_id)
             else:
-                remover_servidor_provedor(self.provider_name)
+                ok = remover_servidor_provedor(self.provider_name)
+            if not ok:
+                QMessageBox.warning(
+                    self,
+                    "Exclusão Falhou",
+                    f"O servidor '{self.provider_name}' não foi encontrado no arquivo de configuração.\n\n"
+                    "Nada foi excluído."
+                )
+                return
             self.models_updated.emit()
             self.accept()
 

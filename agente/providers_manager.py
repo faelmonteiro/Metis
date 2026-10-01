@@ -15,6 +15,7 @@ from agente.models import (
     load_config,
     save_config,
     purge_model_from_legacy_files,
+    purge_server_from_legacy_files,
     # Builtin models
     BUILTIN_MODELS,
     get_models_for_provider,
@@ -34,8 +35,9 @@ from agente.models import (
     set_preference,
     get_removed_servers,
     is_server_removed as _is_server_removed,
-    remove_server,
     restore_server,
+    purge_server_references,
+    drop_server_from_removed_list,
     save_env_var,
 )
 
@@ -188,26 +190,51 @@ def is_servidor_removido(provedor_ou_id: str) -> bool:
 
 
 def remover_servidor_provedor(provedor_ou_id: str) -> bool:
-    """Remove permanentemente um provedor ou servidor customizado dos arquivos."""
+    """
+    Remove permanentemente um provedor ou servidor customizado dos arquivos.
+
+    Retorna True apenas se algo foi de fato removido — antes retornava True
+    incondicionalmente, então a GUI confirmava exclusões que nunca aconteceram.
+    """
     val = (provedor_ou_id or "").strip().lower()
     if not val:
         return False
-    remove_server(val)
+
     cfg = load_config()
     changed = False
-    if "builtin_models" in cfg:
-        for k in list(cfg["builtin_models"].keys()):
-            if k.lower() == val:
-                del cfg["builtin_models"][k]
+
+    bmodels = cfg.get("builtin_models")
+    if isinstance(bmodels, dict):
+        for k in list(bmodels.keys()):
+            if str(k).strip().lower() == val:
+                del bmodels[k]
                 changed = True
-    if "custom_servers" in cfg:
-        before = len(cfg["custom_servers"])
-        cfg["custom_servers"] = [s for s in cfg["custom_servers"] if s.get("id", "").lower() != val and s.get("nome", "").lower() != val]
-        if len(cfg["custom_servers"]) != before:
-            changed = True
+
+    servers = cfg.get("custom_servers")
+    if isinstance(servers, list):
+        antes = len(servers)
+        cfg["custom_servers"] = [
+            s for s in servers
+            if str(s.get("id", "")).strip().lower() != val
+            and str(s.get("nome", "")).strip().lower() != val
+        ]
+        changed = changed or len(cfg["custom_servers"]) != antes
+
+    # Exclusão permanente é o oposto do soft delete: o id sai de
+    # `removed_servers` em vez de entrar. Deixá-lo lá fazia a 2ª chamada
+    # devolver True (a guarda de "nada foi removido" era defeated) e, pior,
+    # ressuscitava o provedor já marcado como removido ao recriá-lo.
+    if drop_server_from_removed_list(cfg, val):
+        changed = True
+
     if changed:
+        # Um único save: tudo acima vive no mesmo dict, então nada sobrescreve
+        # a edição anterior.
         save_config(cfg)
-    return True
+        purge_server_from_legacy_files(val)
+        purge_server_references(val)
+
+    return changed
 
 
 def restaurar_servidor_provedor(provedor_ou_id: str) -> bool:

@@ -1,14 +1,24 @@
 """
 CRUD para servidores customizados (OpenRouter, DeepSeek, etc.).
 """
+import copy as _copy
 import re
 from typing import List, Dict, Optional
-from .storage import load_config, save_config, purge_model_from_legacy_files
+from .storage import (
+    load_config,
+    save_config,
+    purge_model_from_legacy_files,
+    purge_server_from_legacy_files,
+)
 
 
 def _normalize_server_id(name: str) -> str:
     """Gera ID único a partir do nome."""
     return re.sub(r"[^a-zA-Z0-9_]", "_", name.strip().lower()).strip("_")
+
+
+# IDs reservados: provedores embutidos que não podem virar servidores customizados.
+BUILTIN_PROVIDER_IDS = frozenset({"ollama", "gemini", "groq", "nvidia", "g4f"})
 
 
 def _find_server_index(config: Dict, server_id: str) -> int:
@@ -31,9 +41,10 @@ def get_custom_servers() -> List[Dict]:
 
 def get_custom_server(server_id: str) -> Optional[Dict]:
     """Busca um servidor customizado pelo ID."""
-    idx = _find_server_index(load_config(), server_id)
-    if idx >= 0:
-        return load_config()["custom_servers"][idx]
+    servers = load_config().get("custom_servers", [])
+    idx = _find_server_index({"custom_servers": servers}, server_id)
+    if 0 <= idx < len(servers):
+        return _copy.deepcopy(servers[idx])
     return None
 
 
@@ -55,14 +66,21 @@ def add_custom_server(
     if not api_key_env:
         api_key_env = f"{server_id.upper()}_API_KEY"
 
-    # Salva chave no .env se fornecida
+    idx = _find_server_index(config, server_id)
+
+    # Colisão de ID com um provider builtin (ex.: "g4f", "ollama"): mudava o
+    # significado da entrada sem avisar. Rejeita em vez de misturar os dois.
+    if idx < 0 and server_id.strip().lower() in BUILTIN_PROVIDER_IDS:
+        raise ValueError(
+            f"'{server_id}' colide com um provedor embutido. "
+            "Escolha outro nome para o servidor personalizado."
+        )
+
+    # Só grava a chave depois das validações: um cadastro recusado não pode
+    # deixar credencial órfã no .env (e em os.environ) para o resto da sessão.
     if api_key:
         from .preferences import save_env_var
         save_env_var(api_key_env, api_key)
-
-    config = load_config()
-
-    idx = _find_server_index(config, server_id)
 
     server_data = {
         "id": server_id,
@@ -87,19 +105,43 @@ def add_custom_server(
     else:
         config["custom_servers"].append(server_data)
 
+    # Cadastrar/atualizar desfaz o soft delete: um id que ficou em
+    # `removed_servers` esconderia o servidor recém-criado de todas as listas.
+    from .preferences import drop_server_from_removed_list
+    drop_server_from_removed_list(config, server_id)
+
     save_config(config)
     return server_data
 
 
 def remove_custom_server(server_id: str) -> bool:
-    """Remove um servidor customizado."""
+    """
+    Remove permanentemente um servidor customizado.
+
+    Apaga a entrada de `custom_servers`, limpa as referências pendentes
+    (active_models / active_provider / .env) e propaga para as cópias legadas
+    do config, para que a exclusão não deixe sobras em outros arquivos.
+    """
     config = load_config()
     idx = _find_server_index(config, server_id)
-    if idx >= 0:
-        config["custom_servers"].pop(idx)
-        save_config(config)
-        return True
-    return False
+    if idx < 0:
+        return False
+
+    removed = config["custom_servers"].pop(idx)
+    # Exclusão permanente também desfaz o soft delete: com o id em
+    # `removed_servers`, recriar um servidor com o mesmo nome o trazia de volta
+    # já marcado como removido (e portanto invisível nas listas da GUI).
+    from .preferences import drop_server_from_removed_list
+    drop_server_from_removed_list(config, removed.get("id") or server_id)
+    save_config(config)
+
+    purge_server_from_legacy_files(
+        removed.get("id", server_id),
+        removed.get("nome", ""),
+    )
+    from .preferences import purge_server_references
+    purge_server_references(removed.get("id") or server_id)
+    return True
 
 
 def update_custom_server(server_id: str, **kwargs) -> bool:

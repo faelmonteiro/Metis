@@ -12,7 +12,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Any, Generator, Optional
+from typing import Any, Generator, Optional, Tuple
 import atexit
 import threading
 import httpx
@@ -40,6 +40,51 @@ def _get_vision_client() -> httpx.Client:
             if _vision_client is None or _vision_client.is_closed:
                 _vision_client = httpx.Client(timeout=_DEFAULT_TIMEOUT, limits=limits, follow_redirects=True)
     return _vision_client
+
+
+# Assinaturas de imagem por magic bytes. A UI aceita .png/.webp/.bmp/.gif/.svg/.ico,
+# mas o payload saia sempre rotulado como image/jpeg: as APIs de visão rejeitam ou
+# convertem errado, e SVG/ICO nem sequer são raster.
+_MAGIC_MIME: Tuple[Tuple[bytes, str], ...] = (
+    (b"\x89PNG\r\n\x1a\n", "image/png"),
+    (b"\xff\xd8\xff", "image/jpeg"),
+    (b"GIF87a", "image/gif"),
+    (b"GIF89a", "image/gif"),
+    (b"BM", "image/bmp"),
+    (b"II*\x00", "image/tiff"),
+    (b"MM\x00*", "image/tiff"),
+)
+
+# Raster que Gemini/OpenAI-compatível aceitam de fato.
+_MIME_RASTER_SUPORTADO = frozenset({"image/png", "image/jpeg", "image/webp", "image/gif"})
+
+# Rótulo para conteúdo cuja assinatura não casou com nada conhecido. Não pode ser
+# image/jpeg: a API rejeita pela inconsistência e o erro chega longe do arquivo.
+_MIME_FALLBACK = "application/octet-stream"
+
+
+def _mime_da_imagem(image_bytes: bytes) -> Optional[str]:
+    """MIME deduzido dos magic bytes, ou None se o conteúdo não for imagem conhecida."""
+    # lstrip: screenshot vindo de base64 às vezes chega com whitespace na frente
+    # do cabeçalho, o que faria a leitura da assinatura falhar.
+    data = bytes(image_bytes or b"").lstrip()
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    for assinatura, mime in _MAGIC_MIME:
+        if data.startswith(assinatura):
+            return mime
+    return None
+
+
+def _imagem_suportada(image_bytes: bytes) -> bool:
+    """
+    True só para raster que uma API de visão aceita (PNG/JPEG/WebP/GIF).
+
+    Não pode se apoiar em `_MIME_FALLBACK`: SVG, ICO e qualquer byte sem
+    assinatura não são imagem, e passariam como suportados para só falhar
+    depois dentro da API.
+    """
+    return _mime_da_imagem(image_bytes) in _MIME_RASTER_SUPORTADO
 
 
 def close_vision_client():
@@ -90,11 +135,12 @@ class VisionAIEngine:
             
             # Se for a primeira mensagem do usuário e houver imagem, anexa a imagem nela
             if i == 0 and role == "user" and b64_image:
+                mime = _mime_da_imagem(image_bytes) or _MIME_FALLBACK
                 formatted_messages.append({
                     "role": "user",
                     "content": [
                         {"type": "text", "text": text_content},
-                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_image}"}}
+                        {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64_image}"}}
                     ]
                 })
             else:
@@ -131,7 +177,7 @@ class VisionAIEngine:
                     role = "user" if msg.get("role") == "user" else "model"
                     text_content = msg.get("content", "")
                     if i == 0 and role == "user" and image_bytes:
-                        contents.append(types.Content(role=role, parts=[types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"), types.Part.from_text(text=text_content)]))
+                        contents.append(types.Content(role=role, parts=[types.Part.from_bytes(data=image_bytes, mime_type=_mime_da_imagem(image_bytes) or _MIME_FALLBACK), types.Part.from_text(text=text_content)]))
                     else:
                         contents.append(types.Content(role=role, parts=[types.Part.from_text(text=text_content)]))
 
@@ -478,7 +524,7 @@ class VisionAIEngine:
                         {"type": "text", "text": prompt},
                         {
                             "type": "image_url",
-                            "image_url": {"url": f"data:image/jpeg;base64,{b64_image}"}
+                            "image_url": {"url": f"data:{_mime_da_imagem(image_bytes) or _MIME_FALLBACK};base64,{b64_image}"}
                         }
                     ]
                 }

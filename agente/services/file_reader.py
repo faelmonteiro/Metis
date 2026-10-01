@@ -1,5 +1,11 @@
 import subprocess
 
+# `ler_arquivo` roda na thread do Qt quando o usuário anexa um arquivo, então um
+# `pdftotext` pendurado (PDF degenerado, loop interno) congelava a interface
+# inteira. Só o limite de tempo protege; `capture_output` não.
+TIMEOUT_PDF_SEGUNDOS = 20
+
+
 def ler_arquivo(caminho: str, max_chars: int = 25000) -> str:
     """
     Lê o conteúdo de um arquivo (texto puro ou PDF).
@@ -23,8 +29,9 @@ def ler_arquivo(caminho: str, max_chars: int = 25000) -> str:
         # Se for PDF, tenta usar pdftotext
         if extensao == ".pdf":
             result = subprocess.run(
-                ["pdftotext", str(caminho_path), "-"], 
-                capture_output=True, text=True, check=True
+                ["pdftotext", "-q", str(caminho_path), "-"],
+                capture_output=True, text=True, check=True,
+                timeout=TIMEOUT_PDF_SEGUNDOS,
             )
             texto = result.stdout
         else:
@@ -37,6 +44,8 @@ def ler_arquivo(caminho: str, max_chars: int = 25000) -> str:
             texto = texto[:max_chars] + f"\n... [Texto truncado após {max_chars} caracteres devido ao limite de contexto]"
             
         return texto.strip()
+    except subprocess.TimeoutExpired:
+        return f"[Erro] A extração do PDF excedeu {TIMEOUT_PDF_SEGUNDOS}s e foi cancelada."
     except subprocess.CalledProcessError:
         return "[Erro] Falha ao extrair PDF. Certifique-se de que o pacote 'poppler-utils' está instalado (tem o pdftotext)."
     except FileNotFoundError:

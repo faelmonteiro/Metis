@@ -54,7 +54,7 @@ from agente.ui.clipboard import extrair_blocos, _extrair_comando_e_comentario
 from . import config
 from . import model_manager
 from .capture import capture_screen
-from .ai_engine import VisionAIEngine
+from .ai_engine import VisionAIEngine, _imagem_suportada
 from .folder_analyzer import (
     format_folder_context, format_file_context, detect_and_attach_local_files,
     get_active_window_cwd, detect_save_target_path
@@ -426,7 +426,10 @@ class ChatWorker(QThread):
         model: Optional[str] = None
     ):
         super().__init__()
-        self.messages = messages
+        # Cópia: o worker lia `chat_history` enquanto a thread principal seguia
+        # anexando mensagens (e podia limpá-la via reset/load), o que corrompia
+        # os turnos em streaming.
+        self.messages = list(messages or [])
         self.image_bytes = image_bytes
         self.text_context = text_context
         self.engine = VisionAIEngine(provider=provider, model=model)
@@ -1140,7 +1143,26 @@ class ScreenAIOverlay(QWidget):
         addr = self.get_hyprland_address()
         if addr:
             batch = f"dispatch moveoutofgroup address:{addr} ; dispatch setfloating address:{addr} ; dispatch resizewindowpixel exact {actual_w} {actual_h},address:{addr} ; dispatch movewindowpixel exact {x} {y},address:{addr}"
-            subprocess.run(["hyprctl", "--batch", batch], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            self._hyprctl_batch(batch)
+
+    def _hyprctl_batch(self, batch: str) -> None:
+        """Roda um lote de dispatch do Hyprland sem travar a thread da GUI.
+
+        IPC travado (compositor instável, sem Hyprland) deixava o `run` sem
+        timeout bloquear a interface inteira. Um dispatch perdido é
+        insignificante perto de uma GUI congelada.
+        """
+        try:
+            subprocess.run(
+                ["hyprctl", "--batch", batch],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=0.5,
+            )
+        except subprocess.TimeoutExpired:
+            logger.warning("hyprctl --batch expirou; dispatch ignorado")
+        except OSError:
+            logger.debug("hyprctl indisponível", exc_info=True)
 
     def animate_to_bottom_right(self):
         """Desloca e expande a janela suavemente para o canto inferior direito sem cortar bordas."""
@@ -1165,7 +1187,7 @@ class ScreenAIOverlay(QWidget):
         addr = self.get_hyprland_address()
         if addr:
             batch = f"dispatch moveoutofgroup address:{addr} ; dispatch setfloating address:{addr} ; dispatch resizewindowpixel exact {actual_w} {actual_h},address:{addr} ; dispatch movewindowpixel exact {target_x} {target_y},address:{addr}"
-            subprocess.run(["hyprctl", "--batch", batch], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            self._hyprctl_batch(batch)
         else:
             self.anim = QPropertyAnimation(self, b"geometry")
             self.anim.setDuration(240)
@@ -1226,7 +1248,16 @@ class ScreenAIOverlay(QWidget):
                 self.status_label.setText(f"⚠️ Erro ao ler pasta: {str(e)}")
         elif p.suffix.lower() in image_extensions:
             try:
-                self.captured_image = p.read_bytes()
+                dados = p.read_bytes()
+                if not _imagem_suportada(dados):
+                    # SVG/ICO e afins não são raster: nenhuma API de visão os
+                    # aceita, e só descobriríamos isso como "⚠️ Erro na API".
+                    self.status_label.setText(
+                        f"⚠️ '{p.name}' não é uma imagem raster suportada "
+                        "(use PNG, JPEG, WebP ou GIF)."
+                    )
+                    return
+                self.captured_image = dados
                 self.text_context = None
                 self.target_path = str(p)
                 self.set_mode_badge("active_window", f"🖼️ {p.name}")
@@ -1302,6 +1333,11 @@ class ScreenAIOverlay(QWidget):
         """Reinicia o histórico da conversa para começar um novo chat."""
         self.content_stack.setCurrentIndex(0)
         self.chat_history.clear()
+        # Zera também o material anexado. Mantê-lo fazia a próxima pergunta cair
+        # no modo errado: o worker prioriza `text_context` e ignorava a imagem
+        # (ui.py:443-444), em vez de recapturar a tela.
+        self.text_context = None
+        self.captured_image = None
         self.rendered_markdown_history = ""
         self.response_browser.clear()
         self.response_browser.hide()
@@ -1742,6 +1778,10 @@ class ScreenAIOverlay(QWidget):
         detected_context, detected_paths = detect_and_attach_local_files(prompt, extra_cwd=self.active_window_cwd)
         if detected_context:
             self.text_context = detected_context
+            # A pergunta passou a apontar para um arquivo: o modo texto assume e a
+            # captura anterior sai, senão os dois caminhos coexistem e o estado
+            # da janela não bate com o que o worker realmente envia.
+            self.captured_image = None
             
             if detected_paths:
                 detected_path = detected_paths[0]

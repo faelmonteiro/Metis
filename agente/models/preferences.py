@@ -101,6 +101,88 @@ def restore_server(server_id: str) -> None:
         save_config(config)
 
 
+def drop_server_from_removed_list(config: Dict, server_id: str) -> bool:
+    """
+    Tira `server_id` de `config["removed_servers"]`, mutando o dict recebido.
+
+    Usado na exclusão permanente, que é o oposto do soft delete: deixar o id em
+    `removed_servers` fazia o servidor ressuscitar marcado como "removido" (e
+    invisível) quando o usuário recriasse um com o mesmo nome. Opera in-place
+    para que o chamador grave tudo num único `save_config`, sem read-modify-
+    write concorrente.
+
+    Retorna True se a lista mudou.
+    """
+    removed = config.get("removed_servers")
+    if not isinstance(removed, list):
+        return False
+    restantes = [s for s in removed if str(s).strip().lower() != server_id.strip().lower()]
+    if len(restantes) == len(removed):
+        return False
+    config["removed_servers"] = restantes
+    return True
+
+
+def purge_server_references(server_id: str) -> None:
+    """
+    Limpa todas as referências pendentes de um servidor excluído.
+
+    Sem isso, excluir um servidor deixava resíduo em `preferences.active_models`,
+    em `last_active_provider`, em `active_provider` e nas variáveis
+    `<ID>_API_KEY`/`<ID>_MODEL` do .env — o que fazia o servidor reaparecer em
+    listas derivadas e mantinha credenciais órfãs no disco.
+
+    Aceita o ID canônico; variantes com/sem o prefixo `custom:` são normalizadas.
+    """
+    needle = (server_id or "").strip().lower().removeprefix("custom:")
+    if not needle:
+        return
+
+    def _is_provider(value: Any) -> bool:
+        return str(value or "").strip().lower().removeprefix("custom:") == needle
+
+    # 1. Referências dentro do config_models.json
+    config = load_config()
+    changed = False
+
+    prefs = config.get("preferences")
+    if isinstance(prefs, dict):
+        active_models = prefs.get("active_models")
+        if isinstance(active_models, dict):
+            for key in list(active_models.keys()):
+                if _is_provider(key):
+                    del active_models[key]
+                    changed = True
+        if _is_provider(prefs.get("last_active_provider")):
+            prefs["last_active_provider"] = ""
+            changed = True
+
+    was_active = _is_provider(config.get("active_provider"))
+    if was_active:
+        config["active_provider"] = ""
+        changed = True
+
+    # O modelo global só é inválido se o provedor excluído era o ativo.
+    if was_active:
+        for holder in (config, prefs if isinstance(prefs, dict) else {}):
+            if holder.get("active_model"):
+                holder["active_model"] = ""
+                changed = True
+            if holder.get("last_active_model"):
+                holder["last_active_model"] = ""
+                changed = True
+
+    if changed:
+        save_config(config)
+
+    # 2. Credenciais e modelo órfãos no .env
+    for key in (f"{needle.upper()}_API_KEY", f"{needle.upper()}_MODEL"):
+        try:
+            remove_env_var(key)
+        except OSError as exc:
+            logger.warning("Falha ao remover %s do .env: %s", key, exc)
+
+
 # --- Variáveis de ambiente (.env) ---
 
 def _load_env_file() -> Dict[str, str]:
